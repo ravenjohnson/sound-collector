@@ -1,0 +1,23 @@
+# Xcode
+DerivedData/
+build/
+Builds/
+
+# macOS
+.DS_Store
+
+# JUCE user settings
+*.jucer
+*.xcworkspace
+xcuserdata/
+
+# Audio Unit / Plugin binaries
+*.component
+*.vst
+*.vst3
+*.aaxplugin
+*.dll
+*.so
+
+# Backup files
+*~
