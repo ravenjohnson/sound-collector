@@ -1,7 +1,8 @@
 # Xcode
 DerivedData/
 build/
-Builds/
+# Keep Builds/ folder structure but exclude build outputs
+Builds/**/build/
 
 # macOS
 .DS_Store
