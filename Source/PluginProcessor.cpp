@@ -148,6 +148,45 @@ void SoundCollectorAudioProcessor::processBlock (juce::AudioBuffer<float>& buffe
     for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
         buffer.clear (i, 0, buffer.getNumSamples());
 
+    // Generate test tone if active
+    if (testToneActive.load())
+    {
+        const float phaseIncrement = 2.0f * juce::MathConstants<float>::pi * testFrequency / lastSampleRate;
+
+        for (int sample = 0; sample < buffer.getNumSamples(); ++sample)
+        {
+            const float testSample = testGain * std::sin(testPhase);
+
+            // Generate for all output channels (mono or stereo)
+            for (int channel = 0; channel < totalNumOutputChannels; ++channel)
+            {
+                buffer.setSample(channel, sample, testSample);
+            }
+
+            testPhase += phaseIncrement;
+            if (testPhase >= 2.0f * juce::MathConstants<float>::pi)
+                testPhase -= 2.0f * juce::MathConstants<float>::pi;
+        }
+
+        // Debug: Log test tone activation (only once per activation)
+        static bool testToneDebugLogged = false;
+        if (!testToneDebugLogged)
+        {
+            DBG("Test tone activated - generating 440Hz sine wave at 0.5 gain");
+            testToneDebugLogged = true;
+        }
+    }
+    else
+    {
+        // Reset debug flag when test tone is deactivated
+        static bool testToneDebugLogged = false;
+        if (testToneDebugLogged)
+        {
+            DBG("Test tone deactivated - returning to normal input processing");
+            testToneDebugLogged = false;
+        }
+    }
+
     // Update input level meter
     if (totalNumInputChannels > 0)
     {

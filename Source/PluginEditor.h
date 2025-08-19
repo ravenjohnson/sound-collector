@@ -87,6 +87,9 @@ private:
     juce::Label recordingStatusLabel;
     juce::Label lastAutoSaveTimestampLabel;
 
+    // Test tone toggle
+    juce::ToggleButton testToneToggle;
+
     // Text input for file prefix
     juce::TextEditor filePrefixInput;
 

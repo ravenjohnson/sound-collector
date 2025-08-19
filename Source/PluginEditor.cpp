@@ -54,6 +54,11 @@ SoundCollectorAudioProcessorEditor::SoundCollectorAudioProcessorEditor(SoundColl
     recordingStatusLabel.setColour(juce::Label::textColourId, juce::Colours::green);
     addAndMakeVisible(recordingStatusLabel);
 
+    // Test tone toggle
+    testToneToggle.setButtonText("Enable Test Tone");
+    testToneToggle.addListener(this);
+    addAndMakeVisible(testToneToggle);
+
     // Auto-save timestamp label
     lastAutoSaveTimestampLabel.setText("No auto-saves yet", juce::dontSendNotification);
     lastAutoSaveTimestampLabel.setJustificationType(juce::Justification::centred);
@@ -124,8 +129,9 @@ void SoundCollectorAudioProcessorEditor::resized()
     // Center controls
     auto centerArea = bounds.removeFromLeft(bounds.getWidth() / 2);
     recordButton.setBounds(centerArea.getCentreX() - 50, centerArea.getCentreY() - 15, 100, 30);
-    recordingStatusLabel.setBounds(centerArea.getCentreX() - 75, centerArea.getCentreY() + 20, 150, 20);
-    lastAutoSaveTimestampLabel.setBounds(centerArea.getCentreX() - 100, centerArea.getCentreY() + 45, 200, 15);
+    testToneToggle.setBounds(centerArea.getCentreX() - 60, centerArea.getCentreY() + 15, 120, 25);
+    recordingStatusLabel.setBounds(centerArea.getCentreX() - 75, centerArea.getCentreY() + 45, 150, 20);
+    lastAutoSaveTimestampLabel.setBounds(centerArea.getCentreX() - 100, centerArea.getCentreY() + 70, 200, 15);
 
     // Level meter
     auto meterArea = bounds.removeFromRight(150);
@@ -138,30 +144,64 @@ void SoundCollectorAudioProcessorEditor::resized()
 //==============================================================================
 void MeterTimer::timerCallback()
 {
-    if (owner.audioProcessor.isAutoSaveEnabled())
+    // Check if test tone is active first
+    if (owner.audioProcessor.isTestToneActive())
     {
-        if (owner.audioProcessor.isBufferPaused())
+        if (owner.audioProcessor.isAutoSaveEnabled())
         {
-            owner.recordingStatusLabel.setText("Auto-Save Active - Buffer Paused (no audio)", juce::dontSendNotification);
-            owner.recordingStatusLabel.setColour(juce::Label::textColourId, juce::Colours::orange);
+            if (owner.audioProcessor.isBufferPaused())
+            {
+                owner.recordingStatusLabel.setText("Test Tone Active - Auto-Save - Buffer Paused", juce::dontSendNotification);
+                owner.recordingStatusLabel.setColour(juce::Label::textColourId, juce::Colours::yellow);
+            }
+            else
+            {
+                owner.recordingStatusLabel.setText("Test Tone Active - Auto-Save - Recording", juce::dontSendNotification);
+                owner.recordingStatusLabel.setColour(juce::Label::textColourId, juce::Colours::cyan);
+            }
         }
         else
         {
-            owner.recordingStatusLabel.setText("Auto-Save Active - Recording audio snippets", juce::dontSendNotification);
-            owner.recordingStatusLabel.setColour(juce::Label::textColourId, juce::Colours::green);
+            if (owner.audioProcessor.isBufferPaused())
+            {
+                owner.recordingStatusLabel.setText("Test Tone Active - Manual Mode - Buffer Paused", juce::dontSendNotification);
+                owner.recordingStatusLabel.setColour(juce::Label::textColourId, juce::Colours::yellow);
+            }
+            else
+            {
+                owner.recordingStatusLabel.setText("Test Tone Active - Manual Mode - Recording", juce::dontSendNotification);
+                owner.recordingStatusLabel.setColour(juce::Label::textColourId, juce::Colours::cyan);
+            }
         }
     }
     else
     {
-        if (owner.audioProcessor.isBufferPaused())
+        // Normal status display (no test tone)
+        if (owner.audioProcessor.isAutoSaveEnabled())
         {
-            owner.recordingStatusLabel.setText("Manual Mode - Buffer Paused (no audio)", juce::dontSendNotification);
-            owner.recordingStatusLabel.setColour(juce::Label::textColourId, juce::Colours::orange);
+            if (owner.audioProcessor.isBufferPaused())
+            {
+                owner.recordingStatusLabel.setText("Auto-Save Active - Buffer Paused (no audio)", juce::dontSendNotification);
+                owner.recordingStatusLabel.setColour(juce::Label::textColourId, juce::Colours::orange);
+            }
+            else
+            {
+                owner.recordingStatusLabel.setText("Auto-Save Active - Recording audio snippets", juce::dontSendNotification);
+                owner.recordingStatusLabel.setColour(juce::Label::textColourId, juce::Colours::green);
+            }
         }
         else
         {
-            owner.recordingStatusLabel.setText("Manual Mode - Recording audio snippets", juce::dontSendNotification);
-            owner.recordingStatusLabel.setColour(juce::Label::textColourId, juce::Colours::green);
+            if (owner.audioProcessor.isBufferPaused())
+            {
+                owner.recordingStatusLabel.setText("Manual Mode - Buffer Paused (no audio)", juce::dontSendNotification);
+                owner.recordingStatusLabel.setColour(juce::Label::textColourId, juce::Colours::orange);
+            }
+            else
+            {
+                owner.recordingStatusLabel.setText("Manual Mode - Recording audio snippets", juce::dontSendNotification);
+                owner.recordingStatusLabel.setColour(juce::Label::textColourId, juce::Colours::green);
+            }
         }
     }
 }
@@ -172,6 +212,10 @@ void SoundCollectorAudioProcessorEditor::buttonClicked(juce::Button* button)
     if (button == &recordButton)
     {
         audioProcessor.saveLastRecording();
+    }
+    else if (button == &testToneToggle)
+    {
+        audioProcessor.setTestToneActive(testToneToggle.getToggleState());
     }
 }
 

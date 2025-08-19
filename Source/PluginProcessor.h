@@ -102,6 +102,11 @@ public:
     juce::File getSaveDirectory() const;
     juce::File getSessionDirectory() const;
 
+    //==============================================================================
+    // Test tone control
+    void setTestToneActive(bool active) { testToneActive.store(active); }
+    bool isTestToneActive() const { return testToneActive.load(); }
+
 private:
     //==============================================================================
     // Level metering for verification
@@ -167,7 +172,7 @@ private:
     float testPhase = 0.0f;
     float testFrequency = 440.0f; // A4 tone
     float testGain = 0.5f;
-    bool testToneActive = false;
+    std::atomic<bool> testToneActive{false};
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (SoundCollectorAudioProcessor)
 };
