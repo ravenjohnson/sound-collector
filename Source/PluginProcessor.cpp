@@ -9,6 +9,7 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 
+#include <cmath>
 #include <iomanip> // for std::setw and std::setfill
 #include <juce_audio_formats/juce_audio_formats.h>
 
@@ -276,28 +277,20 @@ void SoundCollectorAudioProcessor::saveLastRecording(bool isAutoSave)
 {
     DBG("saveLastRecording called - isAutoSave: " + juce::String(isAutoSave ? "YES" : "NO"));
 
-    // For auto-save, use a simple prefix. For manual save, get it from the editor callback
+    // Get prefix from editor callback for both auto-save and manual save
     juce::String prefix;
-    if (isAutoSave)
+    if (getFilePrefixCallback)
     {
-        prefix = "AutoSave";
+        prefix = getFilePrefixCallback();
+        // If the prefix is empty or still the default, use a fallback
+        if (prefix.isEmpty() || prefix == "Idea")
+        {
+            prefix = isAutoSave ? "AutoSave" : "SoundCollector";
+        }
     }
     else
     {
-        // Manual save - try to get prefix from editor callback
-        if (getFilePrefixCallback)
-        {
-            prefix = getFilePrefixCallback();
-            // If the prefix is empty or still the default, use a fallback
-            if (prefix.isEmpty() || prefix == "Idea")
-            {
-                prefix = "SoundCollector";
-            }
-        }
-        else
-        {
-            prefix = "SoundCollector";
-        }
+        prefix = isAutoSave ? "AutoSave" : "SoundCollector";
     }
 
     juce::String timestamp = juce::Time::getCurrentTime().toString(true, true);

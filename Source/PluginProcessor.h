@@ -163,5 +163,11 @@ private:
     // Autosave timer
     std::unique_ptr<juce::Timer> autoSaveTimer;
 
+    // Test tone for debugging
+    float testPhase = 0.0f;
+    float testFrequency = 440.0f; // A4 tone
+    float testGain = 0.5f;
+    bool testToneActive = false;
+
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (SoundCollectorAudioProcessor)
 };
