@@ -69,6 +69,10 @@ public:
     // 🆕 Get the file prefix from the input field
     juce::String getFilePrefix() const { return filePrefixInput.getText(); }
 
+    //==============================================================================
+    // Sync UI with processor state (for restored sessions)
+    void syncUIWithProcessorState();
+
 private:
     // This reference is provided as a quick way for your editor to
     // access the processor object that created it.

@@ -102,6 +102,14 @@ public:
     juce::File getSaveDirectory() const;
     juce::File getSessionDirectory() const;
 
+    // File prefix management
+    void setPersistentFilePrefix(const juce::String& prefix) { persistentFilePrefix = prefix; }
+    juce::String getPersistentFilePrefix() const { return persistentFilePrefix; }
+
+    // State restoration notification
+    std::function<void()> onStateRestoredCallback;
+    void setStateRestoredCallback(std::function<void()> callback) { onStateRestoredCallback = callback; }
+
     //==============================================================================
     // Test tone control
     void setTestToneActive(bool active) { testToneActive.store(active); }
@@ -150,6 +158,10 @@ private:
     // State management (parameters/preferences)
     juce::AudioProcessorValueTreeState apvts;
     juce::File customSaveDirectory; // User-selected custom directory
+
+    // Persistent state variables
+    juce::String persistentFilePrefix = "Idea"; // Default file prefix
+    juce::String persistentSaveDirectoryPath; // Path to last used save directory
 
     // Audio and buffer handling
     juce::AudioFormatManager formatManager;

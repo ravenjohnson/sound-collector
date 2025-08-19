@@ -67,7 +67,7 @@ SoundCollectorAudioProcessorEditor::SoundCollectorAudioProcessorEditor(SoundColl
     addAndMakeVisible(lastAutoSaveTimestampLabel);
 
     // [NEW] File prefix text input
-    filePrefixInput.setText("Idea", juce::dontSendNotification); // Default text
+    filePrefixInput.setText(audioProcessor.getPersistentFilePrefix(), juce::dontSendNotification); // Use persistent value
     filePrefixInput.setJustification(juce::Justification::centred);
     filePrefixInput.setTextToShowWhenEmpty("Enter prefix", juce::Colours::grey);
     filePrefixInput.addListener(this); // Add listener for text editor events
@@ -90,6 +90,14 @@ SoundCollectorAudioProcessorEditor::SoundCollectorAudioProcessorEditor(SoundColl
     audioProcessor.setFilePrefixCallback([this]() {
         return getFilePrefix();
     });
+
+    // State restoration callback
+    audioProcessor.setStateRestoredCallback([this]() {
+        syncUIWithProcessorState();
+    });
+
+    // Sync UI with restored state
+    syncUIWithProcessorState();
 
     setSize(400, 300);
 }
@@ -230,8 +238,16 @@ void SoundCollectorAudioProcessorEditor::showSaveTimestamp(const juce::String& s
 // Text editor listener implementations
 void SoundCollectorAudioProcessorEditor::textEditorTextChanged(juce::TextEditor& editor)
 {
-    // Handle text changes if needed
-    juce::ignoreUnused(editor);
+    // Save the file prefix to the processor for persistence
+    if (&editor == &filePrefixInput)
+    {
+        juce::String newPrefix = filePrefixInput.getText();
+        if (newPrefix.isNotEmpty())
+        {
+            audioProcessor.setPersistentFilePrefix(newPrefix);
+            DBG("File prefix updated: " + newPrefix);
+        }
+    }
 }
 
 //==============================================================================
@@ -257,4 +273,21 @@ void SoundCollectorAudioProcessorEditor::updateAutoSaveTimestamp()
     juce::String timestamp = "Last auto-save: " + now.toString(false, true, true, true);
     lastAutoSaveTimestampLabel.setText(timestamp, juce::dontSendNotification);
     lastAutoSaveTimestampLabel.setColour(juce::Label::textColourId, juce::Colours::lightblue);
+}
+
+//==============================================================================
+void SoundCollectorAudioProcessorEditor::syncUIWithProcessorState()
+{
+    // Sync test tone toggle with processor state
+    testToneToggle.setToggleState(audioProcessor.isTestToneActive(), juce::dontSendNotification);
+
+    // Sync file prefix with processor state
+    juce::String persistentPrefix = audioProcessor.getPersistentFilePrefix();
+    if (persistentPrefix.isNotEmpty())
+    {
+        filePrefixInput.setText(persistentPrefix, juce::dontSendNotification);
+    }
+
+    DBG("UI synced with processor state - Test tone: " + juce::String(audioProcessor.isTestToneActive() ? "ON" : "OFF") +
+        " Prefix: " + persistentPrefix);
 }

@@ -305,10 +305,75 @@ juce::AudioProcessorEditor* SoundCollectorAudioProcessor::createEditor()
 //==============================================================================
 void SoundCollectorAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
 {
+    // Create a ValueTree to store our state
+    juce::ValueTree state("SoundCollectorState");
+
+    // Save the custom save directory path
+    if (customSaveDirectory.exists())
+    {
+        state.setProperty("customSaveDirectory", customSaveDirectory.getFullPathName(), nullptr);
+    }
+
+    // Save the file prefix
+    state.setProperty("filePrefix", persistentFilePrefix, nullptr);
+
+    // Save the test tone state
+    state.setProperty("testToneActive", testToneActive.load(), nullptr);
+
+    // Convert the ValueTree to a MemoryBlock
+    std::unique_ptr<juce::XmlElement> xml(state.createXml());
+    copyXmlToBinary(*xml, destData);
+
+    DBG("State saved - Directory: " + customSaveDirectory.getFullPathName() + " Prefix: " + persistentFilePrefix);
 }
 
 void SoundCollectorAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
 {
+    // Create a ValueTree from the saved data
+    std::unique_ptr<juce::XmlElement> xmlState(getXmlFromBinary(data, sizeInBytes));
+
+    if (xmlState.get() != nullptr)
+    {
+        juce::ValueTree state = juce::ValueTree::fromXml(*xmlState);
+
+            // Restore the custom save directory
+    if (state.hasProperty("customSaveDirectory"))
+    {
+        juce::String dirPath = state.getProperty("customSaveDirectory");
+        juce::File restoredDir(dirPath);
+        if (restoredDir.exists() && restoredDir.isDirectory())
+        {
+            customSaveDirectory = restoredDir;
+            persistentSaveDirectoryPath = dirPath;
+            DBG("Restored save directory: " + customSaveDirectory.getFullPathName());
+        }
+        else
+        {
+            DBG("Failed to restore save directory - path doesn't exist: " + dirPath);
+        }
+    }
+
+        // Restore the file prefix
+        if (state.hasProperty("filePrefix"))
+        {
+            persistentFilePrefix = state.getProperty("filePrefix");
+            DBG("Restored file prefix: " + persistentFilePrefix);
+        }
+
+        // Restore the test tone state
+        if (state.hasProperty("testToneActive"))
+        {
+            bool wasTestToneActive = state.getProperty("testToneActive");
+            testToneActive.store(wasTestToneActive);
+            DBG("Restored test tone state: " + juce::String(wasTestToneActive ? "ON" : "OFF"));
+        }
+
+        // Notify editor that state has been restored
+        if (onStateRestoredCallback)
+        {
+            onStateRestoredCallback();
+        }
+    }
 }
 
 //==============================================================================
@@ -316,20 +381,20 @@ void SoundCollectorAudioProcessor::saveLastRecording(bool isAutoSave)
 {
     DBG("saveLastRecording called - isAutoSave: " + juce::String(isAutoSave ? "YES" : "NO"));
 
-    // Get prefix from editor callback for both auto-save and manual save
-    juce::String prefix;
-    if (getFilePrefixCallback)
+    // Get prefix from persistent state, with fallback to callback for backward compatibility
+    juce::String prefix = persistentFilePrefix;
+    if (prefix.isEmpty() || prefix == "Idea")
     {
-        prefix = getFilePrefixCallback();
-        // If the prefix is empty or still the default, use a fallback
+        // Fallback to callback if persistent prefix is not set
+        if (getFilePrefixCallback)
+        {
+            prefix = getFilePrefixCallback();
+        }
+        // Final fallback
         if (prefix.isEmpty() || prefix == "Idea")
         {
             prefix = isAutoSave ? "AutoSave" : "SoundCollector";
         }
-    }
-    else
-    {
-        prefix = isAutoSave ? "AutoSave" : "SoundCollector";
     }
 
     juce::String timestamp = juce::Time::getCurrentTime().toString(true, true);
@@ -409,6 +474,8 @@ void SoundCollectorAudioProcessor::saveLastRecording(bool isAutoSave)
 void SoundCollectorAudioProcessor::setUserSaveDirectoryAndPersist(const juce::File& dir)
 {
     customSaveDirectory = dir;
+    persistentSaveDirectoryPath = dir.getFullPathName();
+    DBG("Save directory set and persisted: " + persistentSaveDirectoryPath);
 }
 
 //==============================================================================
