@@ -3,7 +3,7 @@
 
 //==============================================================================
 // Version information - Update this for each release
-#define PLUGIN_VERSION "v3.3"
+#define PLUGIN_VERSION "v4.0"
 
 //==============================================================================
 // Timer class for updating meters
@@ -16,8 +16,8 @@ SoundCollectorAudioProcessorEditor::SoundCollectorAudioProcessorEditor(SoundColl
       footerComponent(static_cast<juce::AudioProcessor&>(p), PLUGIN_VERSION)
 {
     // Set a minimum size and make the window resizable
-    setResizable(true, true);
-    setResizeLimits(600, 440, 1200, 800);
+    setResizable(false, false); // set resizeable to false for now
+    // setResizeLimits(600, 440, 1200, 800);
     setSize(600, 440);
 
     // Subcomponents
@@ -25,7 +25,7 @@ SoundCollectorAudioProcessorEditor::SoundCollectorAudioProcessorEditor(SoundColl
     addAndMakeVisible(footerComponent);
 
     // Settings button
-    settingsButton.setButtonText("Settings");
+    settingsButton.setButtonText("Set File Location");
     settingsButton.onClick = [this]
     {
         juce::File initial = audioProcessor.getUserSaveDirectory();
@@ -45,11 +45,11 @@ SoundCollectorAudioProcessorEditor::SoundCollectorAudioProcessorEditor(SoundColl
     addAndMakeVisible(settingsButton);
 
     // Configure recording controls
-    recordButton.setButtonText("Manual Save (10s)");
+    recordButton.setButtonText("Quick save");
     recordButton.addListener(this);
     addAndMakeVisible(recordButton);
 
-    recordingStatusLabel.setText("Auto-Save Active - Buffer Paused (no audio)", juce::dontSendNotification);
+    recordingStatusLabel.setText("Waiting for audio - recording paused", juce::dontSendNotification);
     recordingStatusLabel.setJustificationType(juce::Justification::centred);
     recordingStatusLabel.setColour(juce::Label::textColourId, juce::Colours::green);
     addAndMakeVisible(recordingStatusLabel);
@@ -67,7 +67,7 @@ SoundCollectorAudioProcessorEditor::SoundCollectorAudioProcessorEditor(SoundColl
     addAndMakeVisible(lastAutoSaveTimestampLabel);
 
     // [NEW] File prefix text input
-    filePrefixInput.setText(audioProcessor.getPersistentFilePrefix(), juce::dontSendNotification); // Use persistent value
+    filePrefixInput.setText(audioProcessor.getSessionFilePrefix(), juce::dontSendNotification); // Use session value
     filePrefixInput.setJustification(juce::Justification::centred);
     filePrefixInput.setTextToShowWhenEmpty("Enter prefix", juce::Colours::grey);
     filePrefixInput.addListener(this); // Add listener for text editor events
@@ -99,7 +99,7 @@ SoundCollectorAudioProcessorEditor::SoundCollectorAudioProcessorEditor(SoundColl
     // Sync UI with restored state
     syncUIWithProcessorState();
 
-    setSize(400, 300);
+    setSize(600, 440);
 }
 
 SoundCollectorAudioProcessorEditor::~SoundCollectorAudioProcessorEditor()
@@ -159,12 +159,12 @@ void MeterTimer::timerCallback()
         {
             if (owner.audioProcessor.isBufferPaused())
             {
-                owner.recordingStatusLabel.setText("Test Tone Active - Auto-Save - Buffer Paused", juce::dontSendNotification);
+                owner.recordingStatusLabel.setText("Test Tone Active - Waiting for audio", juce::dontSendNotification);
                 owner.recordingStatusLabel.setColour(juce::Label::textColourId, juce::Colours::yellow);
             }
             else
             {
-                owner.recordingStatusLabel.setText("Test Tone Active - Auto-Save - Recording", juce::dontSendNotification);
+                owner.recordingStatusLabel.setText("Test Tone Active - Recording", juce::dontSendNotification);
                 owner.recordingStatusLabel.setColour(juce::Label::textColourId, juce::Colours::cyan);
             }
         }
@@ -189,12 +189,12 @@ void MeterTimer::timerCallback()
         {
             if (owner.audioProcessor.isBufferPaused())
             {
-                owner.recordingStatusLabel.setText("Auto-Save Active - Buffer Paused (no audio)", juce::dontSendNotification);
+                owner.recordingStatusLabel.setText("Waiting for audio", juce::dontSendNotification);
                 owner.recordingStatusLabel.setColour(juce::Label::textColourId, juce::Colours::orange);
             }
             else
             {
-                owner.recordingStatusLabel.setText("Auto-Save Active - Recording audio snippets", juce::dontSendNotification);
+                owner.recordingStatusLabel.setText("Recording audio", juce::dontSendNotification);
                 owner.recordingStatusLabel.setColour(juce::Label::textColourId, juce::Colours::green);
             }
         }
@@ -202,12 +202,12 @@ void MeterTimer::timerCallback()
         {
             if (owner.audioProcessor.isBufferPaused())
             {
-                owner.recordingStatusLabel.setText("Manual Mode - Buffer Paused (no audio)", juce::dontSendNotification);
+                owner.recordingStatusLabel.setText("Quick save - Buffer Paused (no audio)", juce::dontSendNotification);
                 owner.recordingStatusLabel.setColour(juce::Label::textColourId, juce::Colours::orange);
             }
             else
             {
-                owner.recordingStatusLabel.setText("Manual Mode - Recording audio snippets", juce::dontSendNotification);
+                owner.recordingStatusLabel.setText("Recording audio", juce::dontSendNotification);
                 owner.recordingStatusLabel.setColour(juce::Label::textColourId, juce::Colours::green);
             }
         }
@@ -238,14 +238,14 @@ void SoundCollectorAudioProcessorEditor::showSaveTimestamp(const juce::String& s
 // Text editor listener implementations
 void SoundCollectorAudioProcessorEditor::textEditorTextChanged(juce::TextEditor& editor)
 {
-    // Save the file prefix to the processor for persistence
+    // Save the file prefix to the processor for session state
     if (&editor == &filePrefixInput)
     {
         juce::String newPrefix = filePrefixInput.getText();
         if (newPrefix.isNotEmpty())
         {
-            audioProcessor.setPersistentFilePrefix(newPrefix);
-            DBG("File prefix updated: " + newPrefix);
+            audioProcessor.setSessionFilePrefix(newPrefix);
+            DBG("Session file prefix updated: " + newPrefix);
         }
     }
 }
@@ -258,7 +258,7 @@ void SoundCollectorAudioProcessorEditor::mouseDown(const juce::MouseEvent& event
     if (event.eventComponent == &filePrefixInput)
     {
         // Only clear if it still has the default text
-        if (filePrefixInput.getText() == "Idea")
+        if (filePrefixInput.getText() == "Filename")
         {
             filePrefixInput.clear();
         }
@@ -282,12 +282,12 @@ void SoundCollectorAudioProcessorEditor::syncUIWithProcessorState()
     testToneToggle.setToggleState(audioProcessor.isTestToneActive(), juce::dontSendNotification);
 
     // Sync file prefix with processor state
-    juce::String persistentPrefix = audioProcessor.getPersistentFilePrefix();
-    if (persistentPrefix.isNotEmpty())
+    juce::String sessionPrefix = audioProcessor.getSessionFilePrefix();
+    if (sessionPrefix.isNotEmpty())
     {
-        filePrefixInput.setText(persistentPrefix, juce::dontSendNotification);
+        filePrefixInput.setText(sessionPrefix, juce::dontSendNotification);
     }
 
     DBG("UI synced with processor state - Test tone: " + juce::String(audioProcessor.isTestToneActive() ? "ON" : "OFF") +
-        " Prefix: " + persistentPrefix);
+        " Prefix: " + sessionPrefix);
 }

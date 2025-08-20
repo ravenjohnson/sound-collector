@@ -265,7 +265,7 @@ void SoundCollectorAudioProcessor::processBlock (juce::AudioBuffer<float>& buffe
 
         }
 
-        // Track meaningful audio samples (only when gate is actually open, not during hold)
+                // Track meaningful audio samples (only when gate is actually open, not during hold)
         if (gateOpen)
         {
             meaningfulAudioSamples.store(meaningfulAudioSamples.load() + buffer.getNumSamples());
@@ -275,10 +275,20 @@ void SoundCollectorAudioProcessor::processBlock (juce::AudioBuffer<float>& buffe
 
     // Check if we have enough audio for autosave
     bool hasEnough = (meaningfulAudioSamples.load() >= minAudioSamplesForSave.load());
+    bool hadEnough = hasEnoughAudioForSave.load();
     hasEnoughAudioForSave.store(hasEnough);
-    if (hasEnough && !hasEnoughAudioForSave.load())
+
+    // Trigger immediate autosave as soon as we have enough meaningful audio (first time only)
+    if (hasEnough && !hadEnough && isAutoSaveEnabled())
     {
-        DBG("ENOUGH AUDIO FOR AUTOSAVE! Meaningful: " + juce::String(meaningfulAudioSamples.load()) + " Min required: " + juce::String(minAudioSamplesForSave.load()));
+        DBG("FIRST TIME ENOUGH AUDIO - TRIGGERING IMMEDIATE AUTOSAVE! Meaningful: " + juce::String(meaningfulAudioSamples.load()) + " Min required: " + juce::String(minAudioSamplesForSave.load()));
+
+        // Use a lambda to trigger autosave on the message thread to avoid threading issues
+        juce::MessageManager::callAsync([this]() {
+            if (isAutoSaveEnabled() && hasEnoughAudioToSave()) {
+                saveLastRecording(true); // true for auto-save
+            }
+        });
     }
 
     // Pass audio through to output
@@ -308,14 +318,14 @@ void SoundCollectorAudioProcessor::getStateInformation (juce::MemoryBlock& destD
     // Create a ValueTree to store our state
     juce::ValueTree state("SoundCollectorState");
 
-    // Save the custom save directory path
+    // Save the session-specific save directory path
     if (customSaveDirectory.exists())
     {
-        state.setProperty("customSaveDirectory", customSaveDirectory.getFullPathName(), nullptr);
+        state.setProperty("sessionSaveDirectory", customSaveDirectory.getFullPathName(), nullptr);
     }
 
-    // Save the file prefix
-    state.setProperty("filePrefix", persistentFilePrefix, nullptr);
+    // Save the session-specific file prefix
+    state.setProperty("sessionFilePrefix", sessionFilePrefix, nullptr);
 
     // Save the test tone state
     state.setProperty("testToneActive", testToneActive.load(), nullptr);
@@ -324,7 +334,7 @@ void SoundCollectorAudioProcessor::getStateInformation (juce::MemoryBlock& destD
     std::unique_ptr<juce::XmlElement> xml(state.createXml());
     copyXmlToBinary(*xml, destData);
 
-    DBG("State saved - Directory: " + customSaveDirectory.getFullPathName() + " Prefix: " + persistentFilePrefix);
+    DBG("Session state saved - Directory: " + customSaveDirectory.getFullPathName() + " Prefix: " + sessionFilePrefix);
 }
 
 void SoundCollectorAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
@@ -336,28 +346,28 @@ void SoundCollectorAudioProcessor::setStateInformation (const void* data, int si
     {
         juce::ValueTree state = juce::ValueTree::fromXml(*xmlState);
 
-            // Restore the custom save directory
-    if (state.hasProperty("customSaveDirectory"))
-    {
-        juce::String dirPath = state.getProperty("customSaveDirectory");
-        juce::File restoredDir(dirPath);
-        if (restoredDir.exists() && restoredDir.isDirectory())
+                    // Restore the session-specific save directory
+        if (state.hasProperty("sessionSaveDirectory"))
         {
-            customSaveDirectory = restoredDir;
-            persistentSaveDirectoryPath = dirPath;
-            DBG("Restored save directory: " + customSaveDirectory.getFullPathName());
+            juce::String dirPath = state.getProperty("sessionSaveDirectory");
+            juce::File restoredDir(dirPath);
+            if (restoredDir.exists() && restoredDir.isDirectory())
+            {
+                customSaveDirectory = restoredDir;
+                sessionSaveDirectoryPath = dirPath;
+                DBG("Restored session save directory: " + customSaveDirectory.getFullPathName());
+            }
+            else
+            {
+                DBG("Failed to restore session save directory - path doesn't exist: " + dirPath);
+            }
         }
-        else
-        {
-            DBG("Failed to restore save directory - path doesn't exist: " + dirPath);
-        }
-    }
 
-        // Restore the file prefix
-        if (state.hasProperty("filePrefix"))
+        // Restore the session-specific file prefix
+        if (state.hasProperty("sessionFilePrefix"))
         {
-            persistentFilePrefix = state.getProperty("filePrefix");
-            DBG("Restored file prefix: " + persistentFilePrefix);
+            sessionFilePrefix = state.getProperty("sessionFilePrefix");
+            DBG("Restored session file prefix: " + sessionFilePrefix);
         }
 
         // Restore the test tone state
@@ -381,17 +391,17 @@ void SoundCollectorAudioProcessor::saveLastRecording(bool isAutoSave)
 {
     DBG("saveLastRecording called - isAutoSave: " + juce::String(isAutoSave ? "YES" : "NO"));
 
-    // Get prefix from persistent state, with fallback to callback for backward compatibility
-    juce::String prefix = persistentFilePrefix;
-    if (prefix.isEmpty() || prefix == "Idea")
+    // Get prefix from session state, with fallback to callback for backward compatibility
+    juce::String prefix = sessionFilePrefix;
+    if (prefix.isEmpty() || prefix == "Filename")
     {
-        // Fallback to callback if persistent prefix is not set
+        // Fallback to callback if session prefix is not set
         if (getFilePrefixCallback)
         {
             prefix = getFilePrefixCallback();
         }
         // Final fallback
-        if (prefix.isEmpty() || prefix == "Idea")
+        if (prefix.isEmpty() || prefix == "Filename")
         {
             prefix = isAutoSave ? "AutoSave" : "SoundCollector";
         }
@@ -459,23 +469,31 @@ void SoundCollectorAudioProcessor::saveLastRecording(bool isAutoSave)
     // Call the save callback if set
     if (onSaveCallback)
     {
-        onSaveCallback(isAutoSave ? "Auto Save" : "Manual Save");
+        onSaveCallback(isAutoSave ? "Auto Save" : "Quick Save");
     }
 
-    // Reset meaningful audio counter only after auto-save, not manual save
+        // For auto-save, subtract only the minimum required amount to allow immediate next save
     if (isAutoSave)
     {
-        meaningfulAudioSamples.store(0);
-        hasEnoughAudioForSave.store(false);
-        DBG("Auto-save completed - resetting meaningful audio counter");
+        // Subtract the minimum required samples (10 seconds) from the counter
+        // This allows the next save to happen immediately if we have continuous audio
+        int minRequired = minAudioSamplesForSave.load();
+        int currentMeaningful = meaningfulAudioSamples.load();
+        int remainingMeaningful = juce::jmax(0, currentMeaningful - minRequired);
+        meaningfulAudioSamples.store(remainingMeaningful);
+
+        // Update the "has enough" flag
+        hasEnoughAudioForSave.store(remainingMeaningful >= minRequired);
+
+        DBG("Auto-save completed - subtracted " + juce::String(minRequired) + " samples, remaining meaningful: " + juce::String(remainingMeaningful));
     }
 }
 
 void SoundCollectorAudioProcessor::setUserSaveDirectoryAndPersist(const juce::File& dir)
 {
     customSaveDirectory = dir;
-    persistentSaveDirectoryPath = dir.getFullPathName();
-    DBG("Save directory set and persisted: " + persistentSaveDirectoryPath);
+    sessionSaveDirectoryPath = dir.getFullPathName();
+    DBG("Session save directory set: " + sessionSaveDirectoryPath);
 }
 
 //==============================================================================

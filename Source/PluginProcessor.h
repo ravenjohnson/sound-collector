@@ -102,9 +102,9 @@ public:
     juce::File getSaveDirectory() const;
     juce::File getSessionDirectory() const;
 
-    // File prefix management
-    void setPersistentFilePrefix(const juce::String& prefix) { persistentFilePrefix = prefix; }
-    juce::String getPersistentFilePrefix() const { return persistentFilePrefix; }
+    // Session-specific file prefix management
+    void setSessionFilePrefix(const juce::String& prefix) { sessionFilePrefix = prefix; }
+    juce::String getSessionFilePrefix() const { return sessionFilePrefix; }
 
     // State restoration notification
     std::function<void()> onStateRestoredCallback;
@@ -159,9 +159,9 @@ private:
     juce::AudioProcessorValueTreeState apvts;
     juce::File customSaveDirectory; // User-selected custom directory
 
-    // Persistent state variables
-    juce::String persistentFilePrefix = "Idea"; // Default file prefix
-    juce::String persistentSaveDirectoryPath; // Path to last used save directory
+    // Session-specific state variables (stored per DAW session)
+    juce::String sessionFilePrefix = "Filename"; // Default file prefix for this session
+    juce::String sessionSaveDirectoryPath; // Path to save directory for this session
 
     // Audio and buffer handling
     juce::AudioFormatManager formatManager;
