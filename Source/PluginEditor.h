@@ -12,7 +12,6 @@
 #include "PluginProcessor.h"
 
 #include "UI/LevelMeterComponent.h"
-#include "UI/FooterComponent.h"
 
 // Forward declaration
 class SoundCollectorAudioProcessorEditor;
@@ -78,24 +77,28 @@ private:
     // access the processor object that created it.
     SoundCollectorAudioProcessor& audioProcessor;
 
-    // Settings
-    juce::TextButton settingsButton;
+    // File chooser
     std::unique_ptr<juce::FileChooser> directoryChooser;
 
     // Subcomponents
     LevelMeterComponent levelMeterComponent;
-    FooterComponent footerComponent;
 
-    // Recording controls
-    juce::TextButton recordButton;
-    juce::Label recordingStatusLabel;
-    juce::Label lastAutoSaveTimestampLabel;
-
-    // Test tone toggle
-    juce::ToggleButton testToneToggle;
-
-    // Text input for file prefix
+    // Header components
+    juce::TextButton settingsButton;
     juce::TextEditor filePrefixInput;
+    juce::Label filePrefixLabel;
+
+    // Status display components
+    juce::TextButton recordButton;
+    juce::ToggleButton testToneToggle;
+    juce::Label recordingStatusLabel;
+    juce::Label lastSaveLabel;
+    juce::Label lastSaveTitleLabel;
+
+    // Footer components
+    juce::Label bufferLabel;
+    juce::Label autoSaveLabel;
+    juce::Label versionLabel;
 
     // Timer for updating meters
     std::unique_ptr<MeterTimer> meterTimer;
