@@ -34,7 +34,8 @@ private:
 */
 class SoundCollectorAudioProcessorEditor  : public juce::AudioProcessorEditor,
                                            public juce::Button::Listener,
-                                           public juce::TextEditor::Listener
+                                           public juce::TextEditor::Listener,
+                                           public juce::Timer
 {
 public:
     SoundCollectorAudioProcessorEditor (SoundCollectorAudioProcessor&);
@@ -72,6 +73,12 @@ public:
     // Sync UI with processor state (for restored sessions)
     void syncUIWithProcessorState();
 
+    // Background image loading
+    void loadBackgroundImage();
+
+    // Timer callback implementation
+    void timerCallback() override;
+
 private:
     // This reference is provided as a quick way for your editor to
     // access the processor object that created it.
@@ -86,7 +93,6 @@ private:
     // Header components
     juce::TextButton settingsButton;
     juce::TextEditor filePrefixInput;
-    juce::Label filePrefixLabel;
 
     // Status display components
     juce::TextButton recordButton;
@@ -99,6 +105,9 @@ private:
     juce::Label bufferLabel;
     juce::Label autoSaveLabel;
     juce::Label versionLabel;
+
+    // Background image
+    juce::Image backgroundImage;
 
     // Timer for updating meters
     std::unique_ptr<MeterTimer> meterTimer;

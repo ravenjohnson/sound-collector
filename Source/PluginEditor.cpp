@@ -3,7 +3,7 @@
 
 //==============================================================================
 // Version information - Update this for each release
-#define PLUGIN_VERSION "v4.1"
+#define PLUGIN_VERSION "v4.5"
 
 //==============================================================================
 // Timer class for updating meters
@@ -14,16 +14,86 @@ SoundCollectorAudioProcessorEditor::SoundCollectorAudioProcessorEditor(SoundColl
     : AudioProcessorEditor(&p), audioProcessor(p),
       levelMeterComponent(static_cast<juce::AudioProcessor&>(p))
 {
+    // Debug: Constructor called
+    DBG("PluginEditor constructor called");
     // Set a minimum size and make the window resizable
     setResizable(false, false); // set resizeable to false for now
-    // setResizeLimits(600, 440, 1200, 800);
-    setSize(600, 440);
+    // setResizeLimits(480, 400, 1200, 800);
+    setSize(480, 400);
 
     // Subcomponents
     addAndMakeVisible(levelMeterComponent);
 
+    // Use a regular TextButton instead of custom class to avoid initialization issues
+
     // Header components
-    settingsButton.setButtonText("Set File Location");
+    settingsButton.setButtonText("Save Location");
+    settingsButton.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
+    settingsButton.setColour(juce::TextButton::textColourOnId, juce::Colours::white);
+
+    // Create a custom LookAndFeel to make the button completely flat and borderless
+    class FlatButtonLookAndFeel : public juce::LookAndFeel_V4
+    {
+    public:
+        void drawButtonBackground(juce::Graphics& g, juce::Button& button,
+                                  const juce::Colour& backgroundColour,
+                                  bool isMouseOverButton, bool isButtonDown) override
+        {
+            // Draw a border around the button
+            auto bounds = button.getLocalBounds().toFloat().reduced(0.5f);
+            g.setColour(juce::Colours::white); // White border for visibility
+            g.drawRoundedRectangle(bounds, 2.0f, 1.0f); // Rounded rectangle border
+        }
+
+        void drawButtonText(juce::Graphics& g, juce::TextButton& button,
+                            bool isMouseOverButton, bool isButtonDown) override
+        {
+            // Draw only the text, no background or border
+            g.setFont(juce::Font(juce::FontOptions().withHeight(12.0f)));
+            g.setColour(button.findColour(isButtonDown ? juce::TextButton::textColourOnId
+                                                       : juce::TextButton::textColourOffId));
+
+            // Position text 36px from left edge, centered vertically
+            auto buttonBounds = button.getLocalBounds();
+            juce::Rectangle<int> textBounds(36, 0, buttonBounds.getWidth() - 36, buttonBounds.getHeight());
+            g.drawFittedText(button.getButtonText(), textBounds,
+                           juce::Justification::centredLeft, 1);
+        }
+    };
+
+    // Custom TextEditor LookAndFeel for transparent styling and text positioning
+    class FlatTextEditorLookAndFeel : public juce::LookAndFeel_V4
+    {
+    public:
+        void fillTextEditorBackground(juce::Graphics& g, int width, int height, juce::TextEditor& textEditor) override
+        {
+            // Don't draw any background
+        }
+
+        void drawTextEditorOutline(juce::Graphics& g, int width, int height, juce::TextEditor& textEditor) override
+        {
+            // Draw a border around the text editor
+            auto bounds = textEditor.getLocalBounds().toFloat().reduced(0.5f);
+            g.setColour(juce::Colours::white); // White border for visibility
+            g.drawRoundedRectangle(bounds, 2.0f, 1.0f); // Rounded rectangle border
+        }
+
+        int getTextEditorHorizontalMargin(juce::TextEditor& textEditor)
+        {
+            return 12; // 12px margin from left edge
+        }
+
+        int getTextEditorVerticalMargin(juce::TextEditor& textEditor)
+        {
+            return 2; // Small vertical margin for better vertical centering
+        }
+    };
+
+    // Apply the custom look and feel
+    static FlatButtonLookAndFeel flatLookAndFeel;
+    static FlatTextEditorLookAndFeel flatTextEditorLookAndFeel;
+    settingsButton.setLookAndFeel(&flatLookAndFeel);
+    filePrefixInput.setLookAndFeel(&flatTextEditorLookAndFeel);
     settingsButton.onClick = [this]() {
         juce::File initial = audioProcessor.getUserSaveDirectory();
         if (initial.getFullPathName().isEmpty())
@@ -41,13 +111,18 @@ SoundCollectorAudioProcessorEditor::SoundCollectorAudioProcessorEditor(SoundColl
     };
     addAndMakeVisible(settingsButton);
 
-    filePrefixLabel.setText("Filename:", juce::dontSendNotification);
-    filePrefixLabel.setJustificationType(juce::Justification::centredLeft);
-    filePrefixLabel.attachToComponent(&filePrefixInput, true);
-    addAndMakeVisible(filePrefixLabel);
-
+    // Configure filename input as placeholder-style
     filePrefixInput.setText(audioProcessor.getSessionFilePrefix(), juce::dontSendNotification);
-    filePrefixInput.setFont(juce::Font(14.0f));
+    filePrefixInput.setFont(juce::Font(juce::FontOptions().withHeight(12.0f)));
+
+    // Make border and background transparent, set white text
+    filePrefixInput.setColour(juce::TextEditor::backgroundColourId, juce::Colours::transparentBlack);
+    filePrefixInput.setColour(juce::TextEditor::outlineColourId, juce::Colours::transparentBlack);
+    filePrefixInput.setColour(juce::TextEditor::focusedOutlineColourId, juce::Colours::transparentBlack);
+    filePrefixInput.setColour(juce::TextEditor::textColourId, juce::Colours::white);
+    filePrefixInput.setColour(juce::TextEditor::highlightedTextColourId, juce::Colours::white);
+    filePrefixInput.setColour(juce::TextEditor::highlightColourId, juce::Colours::transparentBlack);
+
     filePrefixInput.onTextChange = [this]() {
         audioProcessor.setSessionFilePrefix(filePrefixInput.getText());
         DBG("Session file prefix updated: " + filePrefixInput.getText());
@@ -61,7 +136,7 @@ SoundCollectorAudioProcessorEditor::SoundCollectorAudioProcessorEditor(SoundColl
     };
     addAndMakeVisible(recordButton);
 
-    testToneToggle.setButtonText("Enable Test Tone");
+    testToneToggle.setButtonText("Test tone");
     testToneToggle.onClick = [this]() {
         audioProcessor.setTestToneActive(testToneToggle.getToggleState());
     };
@@ -69,17 +144,17 @@ SoundCollectorAudioProcessorEditor::SoundCollectorAudioProcessorEditor(SoundColl
 
     recordingStatusLabel.setText("Waiting for audio...", juce::dontSendNotification);
     recordingStatusLabel.setJustificationType(juce::Justification::centredLeft);
-    recordingStatusLabel.setFont(juce::Font(14.0f));
+    recordingStatusLabel.setFont(juce::Font(juce::FontOptions().withHeight(12.0f)));
     addAndMakeVisible(recordingStatusLabel);
 
-    lastSaveTitleLabel.setText("Last Auto-Save:", juce::dontSendNotification);
+    lastSaveTitleLabel.setText("Last saved:", juce::dontSendNotification);
     lastSaveTitleLabel.setJustificationType(juce::Justification::centredLeft);
-    lastSaveTitleLabel.setFont(juce::Font(12.0f));
+    lastSaveTitleLabel.setFont(juce::Font(juce::FontOptions().withHeight(12.0f)));
     addAndMakeVisible(lastSaveTitleLabel);
 
     lastSaveLabel.setText("None", juce::dontSendNotification);
     lastSaveLabel.setJustificationType(juce::Justification::centredLeft);
-    lastSaveLabel.setFont(juce::Font(12.0f));
+    lastSaveLabel.setFont(juce::Font(juce::FontOptions().withHeight(12.0f)));
     lastSaveLabel.setColour(juce::Label::textColourId, juce::Colours::grey);
     addAndMakeVisible(lastSaveLabel);
 
@@ -101,6 +176,9 @@ SoundCollectorAudioProcessorEditor::SoundCollectorAudioProcessorEditor(SoundColl
     versionLabel.setColour(juce::Label::textColourId, juce::Colours::grey);
     versionLabel.setText(PLUGIN_VERSION, juce::dontSendNotification);
     addAndMakeVisible(versionLabel);
+
+    // Load background image
+    loadBackgroundImage();
 
     // Meter timer
     meterTimer = std::make_unique<MeterTimer>(*this);
@@ -128,7 +206,7 @@ SoundCollectorAudioProcessorEditor::SoundCollectorAudioProcessorEditor(SoundColl
     // Sync UI with restored state
     syncUIWithProcessorState();
 
-    setSize(600, 440);
+    setSize(480, 400);
 }
 
 SoundCollectorAudioProcessorEditor::~SoundCollectorAudioProcessorEditor()
@@ -136,13 +214,100 @@ SoundCollectorAudioProcessorEditor::~SoundCollectorAudioProcessorEditor()
 }
 
 //==============================================================================
+void SoundCollectorAudioProcessorEditor::loadBackgroundImage()
+{
+    // Try to load background image from various locations
+    juce::File backgroundFile;
+
+    // Try multiple paths for the background image
+    juce::Array<juce::File> possiblePaths;
+
+    // 1. App bundle Resources directory
+    juce::File bundleFile = juce::File::getSpecialLocation(juce::File::currentExecutableFile);
+    if (bundleFile.getParentDirectory().getFileName() == "MacOS")
+    {
+        possiblePaths.add(bundleFile.getParentDirectory().getParentDirectory()
+                         .getChildFile("Resources")
+                         .getChildFile("background.png"));
+    }
+
+    // 2. Executable directory
+    possiblePaths.add(bundleFile.getChildFile("background.png"));
+
+    // 3. Development path
+    possiblePaths.add(juce::File("/Users/hrafn/Documents/workspaces/sound-collector/Source/Assets/background.png"));
+
+    // Try each path
+    for (const auto& path : possiblePaths)
+    {
+        if (path.existsAsFile())
+        {
+            backgroundFile = path;
+            break;
+        }
+    }
+
+    if (backgroundFile.existsAsFile())
+    {
+        juce::FileInputStream inputStream(backgroundFile);
+        if (inputStream.openedOk())
+        {
+            // Try loading with ImageFileFormat
+            backgroundImage = juce::ImageFileFormat::loadFrom(inputStream);
+            if (!backgroundImage.isValid())
+            {
+                // Try alternative loading method
+                backgroundImage = juce::ImageCache::getFromFile(backgroundFile);
+            }
+        }
+    }
+}
+
+//==============================================================================
+void SoundCollectorAudioProcessorEditor::timerCallback()
+{
+    // Timer callback implementation for juce::Timer inheritance
+    // The actual timer logic is handled by MeterTimer class
+}
+
+//==============================================================================
 void SoundCollectorAudioProcessorEditor::paint(juce::Graphics& g)
 {
-    g.fillAll(getLookAndFeel().findColour(juce::ResizableWindow::backgroundColourId));
+    // Draw background image if available, otherwise use solid color
+    if (backgroundImage.isValid())
+    {
+        // Scale the image to fit the plugin window size while preserving aspect ratio
+        float imageAspect = (float)backgroundImage.getWidth() / (float)backgroundImage.getHeight();
+        float windowAspect = (float)getWidth() / (float)getHeight();
+
+        int drawWidth, drawHeight, offsetX = 0, offsetY = 0;
+
+        if (imageAspect > windowAspect)
+        {
+            // Image is wider relative to height - fit to width
+            drawWidth = getWidth();
+            drawHeight = (int)(getWidth() / imageAspect);
+            offsetY = (getHeight() - drawHeight) / 2;
+        }
+        else
+        {
+            // Image is taller relative to width - fit to height
+            drawHeight = getHeight();
+            drawWidth = (int)(getHeight() * imageAspect);
+            offsetX = (getWidth() - drawWidth) / 2;
+        }
+
+        g.drawImage(backgroundImage, offsetX, offsetY, drawWidth, drawHeight, 0, 0, backgroundImage.getWidth(), backgroundImage.getHeight());
+    }
+    else
+    {
+        // Fallback to default color background
+        g.fillAll(getLookAndFeel().findColour(juce::ResizableWindow::backgroundColourId));
+    }
 
     g.setColour(juce::Colours::white);
     g.setFont(juce::FontOptions(15.0f));
-    g.drawFittedText("Sound Collector - Continuous Recorder", getLocalBounds().removeFromTop(30), juce::Justification::centred, 1);
+    g.drawFittedText("Sound Collector", getLocalBounds().removeFromTop(30), juce::Justification::left, 1);
 
     g.setFont(juce::FontOptions(12.0f));
     juce::String infoText = "Buffer: 10s | Auto-Save: " +
@@ -159,19 +324,13 @@ void SoundCollectorAudioProcessorEditor::resized()
     const int footerHeight = 40;
 
     // Top: Header row
-    auto headerBounds = bounds.removeFromTop(headerHeight);
-    auto headerContent = headerBounds.reduced(padding);
+    bounds.removeFromTop(headerHeight);
 
-    // Settings button on the left
-    const int buttonWidth = 120;
-    settingsButton.setBounds(headerContent.removeFromLeft(buttonWidth + padding));
+    // Settings button positioned at specific coordinates
+    settingsButton.setBounds(32, 133, 126, 32);
 
-    // File prefix section on the right
-    const int labelWidth = 60;
-    const int inputHeight = 24;
-    auto prefixBounds = headerContent.reduced(padding, (headerContent.getHeight() - inputHeight) / 2);
-    filePrefixLabel.setBounds(prefixBounds.removeFromLeft(labelWidth));
-    filePrefixInput.setBounds(prefixBounds);
+    // Filename input positioned at specific coordinates
+    filePrefixInput.setBounds(166, 133, 168, 32);
 
     // Bottom: Footer row
     auto footerBounds = bounds.removeFromBottom(footerHeight);
@@ -187,22 +346,21 @@ void SoundCollectorAudioProcessorEditor::resized()
     versionLabel.setBounds(footerContent.reduced(padding, 0));
 
     // Middle: Split into left and right columns
-    auto leftColumn = bounds.removeFromLeft(bounds.getWidth() / 2);
+    auto leftColumn = bounds.removeFromLeft(bounds.getWidth() * 6 / 8);
     auto rightColumn = bounds;
 
     // Left column: Status display
     auto statusBounds = leftColumn.reduced(padding);
-    const int buttonHeight = 30;
-    const int toggleHeight = 24;
-    const int statusLabelHeight = 20;
+    const int buttonHeight = 32;
+    const int toggleHeight = 32;
+
 
         recordButton.setBounds(statusBounds.removeFromTop(buttonHeight + padding));
     testToneToggle.setBounds(statusBounds.removeFromTop(toggleHeight + padding));
-    recordingStatusLabel.setBounds(statusBounds.removeFromTop(statusLabelHeight + padding));
+    recordingStatusLabel.setBounds(32, 212, 200, 20);
 
-    auto lastSaveBounds = statusBounds.removeFromTop(statusLabelHeight * 2 + padding);
-    lastSaveTitleLabel.setBounds(lastSaveBounds.removeFromTop(statusLabelHeight));
-    lastSaveLabel.setBounds(lastSaveBounds);
+    lastSaveTitleLabel.setBounds(32, 245, 53, 20);
+    lastSaveLabel.setBounds(92, 245, 150, 20);
 
     // Right column: Level meter
     levelMeterComponent.setBounds(rightColumn.reduced(padding));

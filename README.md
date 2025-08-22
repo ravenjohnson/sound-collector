@@ -12,7 +12,7 @@ A modern JUCE-based audio plugin and standalone application for intelligent soun
 - **Test Tone Generator**: Built-in 440Hz sine wave for testing and calibration
 
 ### **User Interface**
-- **Modern Grid Layout**: Clean, organized 600x440 interface with logical component grouping
+- **Modern Grid Layout**: Clean, organized 480x400 interface with logical component grouping
 - **Real-time Level Metering**: Visual input level monitoring with dB readouts (-60dB to 0dB range)
 - **Status Display**: Color-coded recording status with detailed state information
 - **Session Persistence**: Custom file locations and prefixes are saved per DAW session
@@ -187,7 +187,7 @@ sound-collector/
 ### Current Version: v4.1
 
 **Recent Updates**:
-- Modern grid-based UI layout (600x440)
+- Modern grid-based UI layout (480x400)
 - Test tone generator for calibration
 - Session-specific state persistence
 - Real-time level metering with dB display
