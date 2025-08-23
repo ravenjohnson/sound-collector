@@ -38,6 +38,8 @@ class SoundCollectorAudioProcessorEditor  : public juce::AudioProcessorEditor,
                                            public juce::Timer
 {
 public:
+
+
     SoundCollectorAudioProcessorEditor (SoundCollectorAudioProcessor&);
     ~SoundCollectorAudioProcessorEditor() override;
 
@@ -75,6 +77,9 @@ public:
 
     // Background image loading
     void loadBackgroundImage();
+    
+    // Button image loading
+    void loadButtonImages();
 
     // Timer callback implementation
     void timerCallback() override;
@@ -101,6 +106,9 @@ private:
     juce::Label lastSaveLabel;
     juce::Label lastSaveTitleLabel;
 
+    // Instructional text component
+    juce::Label instructionLabel;
+
     // Footer components
     juce::Label bufferLabel;
     juce::Label autoSaveLabel;
@@ -108,6 +116,12 @@ private:
 
     // Background image
     juce::Image backgroundImage;
+    
+    // Button background images
+    juce::Image saveLocationButtonImage;
+    juce::Image saveLocationButtonHoverImage;
+    juce::Image quickSaveButtonImage;
+    juce::Image quickSaveButtonHoverImage;
 
     // Timer for updating meters
     std::unique_ptr<MeterTimer> meterTimer;
