@@ -37,21 +37,21 @@ SoundCollectorAudioProcessorEditor::SoundCollectorAudioProcessorEditor(SoundColl
     public:
         SaveLocationButtonLookAndFeel(juce::Image& normalImage, juce::Image& hoverImage)
             : normalButtonImage(normalImage), hoverButtonImage(hoverImage) {}
-            
+
         void drawButtonBackground(juce::Graphics& g, juce::Button& button,
                                   const juce::Colour& backgroundColour,
                                   bool isMouseOverButton, bool isButtonDown) override
         {
             // Draw the appropriate background image based on mouse state
             juce::Image& imageToDraw = isMouseOverButton ? hoverButtonImage : normalButtonImage;
-            
+
             if (imageToDraw.isValid())
             {
                 auto bounds = button.getLocalBounds().toFloat();
                 g.drawImage(imageToDraw, bounds, juce::RectanglePlacement::stretchToFit);
             }
         }
-        
+
         void drawButtonText(juce::Graphics& g, juce::TextButton& button,
                             bool isMouseOverButton, bool isButtonDown) override
         {
@@ -66,7 +66,7 @@ SoundCollectorAudioProcessorEditor::SoundCollectorAudioProcessorEditor(SoundColl
             g.drawFittedText(button.getButtonText(), textBounds,
                            juce::Justification::centredLeft, 1);
         }
-        
+
     private:
         juce::Image& normalButtonImage;
         juce::Image& hoverButtonImage;
@@ -99,10 +99,10 @@ SoundCollectorAudioProcessorEditor::SoundCollectorAudioProcessorEditor(SoundColl
 
     // Apply the custom look and feel
     static FlatTextEditorLookAndFeel flatTextEditorLookAndFeel;
-    
+
     // Configure the filename input
     filePrefixInput.setLookAndFeel(&flatTextEditorLookAndFeel);
-    
+
     settingsButton.onClick = [this]() {
         juce::File initial = audioProcessor.getUserSaveDirectory();
         if (initial.getFullPathName().isEmpty())
@@ -140,14 +140,14 @@ SoundCollectorAudioProcessorEditor::SoundCollectorAudioProcessorEditor(SoundColl
         audioProcessor.setSessionFilePrefix(filePrefixInput.getText());
         DBG("Session file prefix updated: " + filePrefixInput.getText());
     };
-    
+
     // Initialize with existing session prefix
     juce::String existingPrefix = audioProcessor.getSessionFilePrefix();
     if (existingPrefix.isNotEmpty())
     {
         filePrefixInput.setText(existingPrefix, juce::dontSendNotification);
     }
-    
+
     addAndMakeVisible(filePrefixInput);
 
     // Status display components
@@ -161,20 +161,20 @@ SoundCollectorAudioProcessorEditor::SoundCollectorAudioProcessorEditor(SoundColl
     public:
         QuickSaveButtonLookAndFeel(juce::Image& normalImage, juce::Image& hoverImage)
             : normalButtonImage(normalImage), hoverButtonImage(hoverImage) {}
-            
+
         void drawButtonBackground(juce::Graphics& g, juce::Button& button, const juce::Colour& backgroundColour,
                                 bool isMouseOverButton, bool isButtonDown) override
         {
             // Draw the appropriate background image based on mouse state
             juce::Image& imageToDraw = isMouseOverButton ? hoverButtonImage : normalButtonImage;
-            
+
             if (imageToDraw.isValid())
             {
                 auto bounds = button.getLocalBounds().toFloat();
                 g.drawImage(imageToDraw, bounds, juce::RectanglePlacement::stretchToFit);
             }
         }
-        
+
         void drawButtonText(juce::Graphics& g, juce::TextButton& button,
                            bool isMouseOverButton, bool isButtonDown) override
         {
@@ -187,7 +187,7 @@ SoundCollectorAudioProcessorEditor::SoundCollectorAudioProcessorEditor(SoundColl
             const int cornerSize = juce::jmin(button.getHeight(), button.getWidth()) / 2;
 
             const int fontHeight = juce::roundToInt(14.0f * 0.6f);
-            const int leftIndent = 28; // 28px from left as requested
+            const int leftIndent = 38; // 38px from left as requested
             const int rightIndent = juce::jmin(fontHeight, 2 + cornerSize / (button.isConnectedOnRight() ? 4 : 2));
             const int textWidth = button.getWidth() - leftIndent - rightIndent;
 
@@ -196,7 +196,7 @@ SoundCollectorAudioProcessorEditor::SoundCollectorAudioProcessorEditor(SoundColl
                                 leftIndent, yIndent, textWidth, button.getHeight() - yIndent * 2,
                                 juce::Justification::centredLeft, 2);
         }
-        
+
     private:
         juce::Image& normalButtonImage;
         juce::Image& hoverButtonImage;
@@ -250,10 +250,10 @@ SoundCollectorAudioProcessorEditor::SoundCollectorAudioProcessorEditor(SoundColl
 
     // Load background image
     loadBackgroundImage();
-    
+
     // Load button background images
     loadButtonImages();
-    
+
     // Apply button LookAndFeel with loaded images
     static SaveLocationButtonLookAndFeel saveLocationLookAndFeel(saveLocationButtonImage, saveLocationButtonHoverImage);
     static QuickSaveButtonLookAndFeel quickSaveLookAndFeel(quickSaveButtonImage, quickSaveButtonHoverImage);
@@ -356,20 +356,20 @@ void SoundCollectorAudioProcessorEditor::loadButtonImages()
 {
     // Try to load button images from various locations
     juce::File bundleFile = juce::File::getSpecialLocation(juce::File::currentExecutableFile);
-    
+
     // Try multiple paths for the button images
     juce::Array<juce::File> possiblePaths;
-    
+
     // 1. App bundle Resources directory
     if (bundleFile.getParentDirectory().getFileName() == "MacOS")
     {
         possiblePaths.add(bundleFile.getParentDirectory().getParentDirectory()
                          .getChildFile("Resources"));
     }
-    
+
     // 2. Executable directory
     possiblePaths.add(bundleFile.getParentDirectory());
-    
+
     // 3. Development path (relative to project root)
     juce::File projectRoot = bundleFile.getParentDirectory()  // Contents/MacOS/
                                .getParentDirectory()        // Contents/
@@ -380,13 +380,13 @@ void SoundCollectorAudioProcessorEditor::loadButtonImages()
                                .getParentDirectory()        // Builds/
                                .getParentDirectory();       // project_root/
     possiblePaths.add(projectRoot.getChildFile("Source").getChildFile("Assets"));
-    
+
     // Load Save Location button images
     for (const auto& path : possiblePaths)
     {
         juce::File normalFile = path.getChildFile("button-location.png");
         juce::File hoverFile = path.getChildFile("button-location-hover.png");
-        
+
         if (normalFile.existsAsFile() && hoverFile.existsAsFile())
         {
             saveLocationButtonImage = juce::ImageCache::getFromFile(normalFile);
@@ -394,13 +394,13 @@ void SoundCollectorAudioProcessorEditor::loadButtonImages()
             break;
         }
     }
-    
+
     // Load Quick Save button images
     for (const auto& path : possiblePaths)
     {
         juce::File normalFile = path.getChildFile("button-save.png");
         juce::File hoverFile = path.getChildFile("button-save-hover.png");
-        
+
         if (normalFile.existsAsFile() && hoverFile.existsAsFile())
         {
             quickSaveButtonImage = juce::ImageCache::getFromFile(normalFile);
@@ -452,15 +452,15 @@ void SoundCollectorAudioProcessorEditor::paint(juce::Graphics& g)
         g.fillAll(getLookAndFeel().findColour(juce::ResizableWindow::backgroundColourId));
     }
 
-    g.setColour(juce::Colours::white);
-    g.setFont(juce::FontOptions(14.0f));
-    g.drawFittedText("Sound Collector", getLocalBounds().removeFromTop(30), juce::Justification::left, 1);
-    
+    // g.setColour(juce::Colours::white);
+    // g.setFont(juce::FontOptions(14.0f));
+    // g.drawFittedText("Sound Collector", getLocalBounds().removeFromTop(30), juce::Justification::left, 1);
+
     // Draw instruction text with explicit line wrapping
-    g.setColour(juce::Colours::white.withAlpha(0.5f)); 
+    g.setColour(juce::Colours::white.withAlpha(0.5f));
     g.setFont(juce::FontOptions(14.0f));
     juce::Rectangle<int> instructionRect(32, 76, 300, 50);
-    g.drawFittedText("Choose a save folder and filename - Sound Collector keeps the last 10s of your audio, auto-saved.", 
+    g.drawFittedText("Choose a save folder and filename - Sound Collector keeps the last 10s of your audio, auto-saved.",
                      instructionRect, juce::Justification::topLeft, 3); // 3 lines maximum for wrapping
 
     g.setFont(juce::FontOptions(14.0f));
@@ -508,7 +508,7 @@ void SoundCollectorAudioProcessorEditor::resized()
 
 
         // Quick save button positioned at specific coordinates with exact size
-    recordButton.setBounds(16, 288, 109, 32);
+    recordButton.setBounds(16, 288, 112, 32);
     // Test tone button positioned to the right of Quick Save button
     testToneToggle.setBounds(133, 288, 100, 32);
     recordingStatusLabel.setBounds(32, 212, 200, 20);
