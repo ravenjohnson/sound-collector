@@ -16,10 +16,10 @@ SoundCollectorAudioProcessorEditor::SoundCollectorAudioProcessorEditor(SoundColl
 {
     // Debug: Constructor called
     DBG("PluginEditor constructor called");
-    // Set a minimum size and make the window resizable
-    setResizable(false, false); // set resizeable to false for now
-    // setResizeLimits(480, 400, 1200, 800);
-    setSize(480, 400);
+
+    // Set fixed size - plugin is not resizable
+    setResizable(false, false);
+    // Note: setSize() moved to end of constructor to avoid initialization crashes
 
     // Subcomponents
     addAndMakeVisible(levelMeterComponent);
@@ -118,7 +118,7 @@ SoundCollectorAudioProcessorEditor::SoundCollectorAudioProcessorEditor(SoundColl
             initial = juce::File::getSpecialLocation(juce::File::userDesktopDirectory);
 
         directoryChooser = std::make_unique<juce::FileChooser>("Select Default Save Folder", initial);
-        directoryChooser->launchAsync(juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectDirectories,
+        directoryChooser->launchAsync(juce::FileBrowserComponent::canSelectDirectories,
             [this](const juce::FileChooser& fc)
             {
                 auto dir = fc.getResult();
@@ -252,20 +252,11 @@ SoundCollectorAudioProcessorEditor::SoundCollectorAudioProcessorEditor(SoundColl
     bufferLabel.setText("Buffer: 10.0s | Auto-Save: " + juce::String(audioProcessor.getAutoSaveDuration(), 1) + "s", juce::dontSendNotification);
     addAndMakeVisible(bufferLabel);
 
-    // Remove autoSaveLabel since we're combining it with bufferLabel
-    // autoSaveLabel.setJustificationType(juce::Justification::centredLeft);
-    // autoSaveLabel.setFont(juce::FontOptions(14.0f));
-    // autoSaveLabel.setColour(juce::Label::textColourId, juce::Colours::grey);
-    // autoSaveLabel.setText("Auto-Save: " + juce::String(audioProcessor.getAutoSaveDuration(), 1) + "s", juce::dontSendNotification);
-    // addAndMakeVisible(autoSaveLabel);
-
     versionLabel.setJustificationType(juce::Justification::centred);
     versionLabel.setFont(juce::FontOptions(14.0f));
     versionLabel.setColour(juce::Label::textColourId, juce::Colours::grey);
     versionLabel.setText(PLUGIN_VERSION, juce::dontSendNotification);
     addAndMakeVisible(versionLabel);
-
-    // Instruction text is drawn directly in paint() method - no component setup needed
 
     // Load background image
     loadBackgroundImage();
@@ -274,22 +265,26 @@ SoundCollectorAudioProcessorEditor::SoundCollectorAudioProcessorEditor(SoundColl
     loadButtonImages();
 
     // Apply button LookAndFeel with loaded images (only if images are valid)
-    static SaveLocationButtonLookAndFeel saveLocationLookAndFeel(saveLocationButtonImage, saveLocationButtonHoverImage);
-    static QuickSaveButtonLookAndFeel quickSaveLookAndFeel(quickSaveButtonImage, quickSaveButtonHoverImage);
-    
-    // Only apply custom LookAndFeel if images are valid, otherwise use default
+    // Create LookAndFeel objects as heap-allocated instances to avoid static issues
+    saveLocationLookAndFeel = nullptr;
+    quickSaveLookAndFeel = nullptr;
+
     if (saveLocationButtonImage.isValid() && saveLocationButtonHoverImage.isValid())
     {
-        settingsButton.setLookAndFeel(&saveLocationLookAndFeel);
+        saveLocationLookAndFeel = new SaveLocationButtonLookAndFeel(saveLocationButtonImage, saveLocationButtonHoverImage);
+        settingsButton.setLookAndFeel(saveLocationLookAndFeel);
+        DBG("Applied custom LookAndFeel for settings button");
     }
     else
     {
         DBG("Using default LookAndFeel for settings button due to invalid images");
     }
-    
+
     if (quickSaveButtonImage.isValid() && quickSaveButtonHoverImage.isValid())
     {
-        recordButton.setLookAndFeel(&quickSaveLookAndFeel);
+        quickSaveLookAndFeel = new QuickSaveButtonLookAndFeel(quickSaveButtonImage, quickSaveButtonHoverImage);
+        recordButton.setLookAndFeel(quickSaveLookAndFeel);
+        DBG("Applied custom LookAndFeel for record button");
     }
     else
     {
@@ -322,11 +317,30 @@ SoundCollectorAudioProcessorEditor::SoundCollectorAudioProcessorEditor(SoundColl
     // Sync UI with restored state
     syncUIWithProcessorState();
 
-    setSize(480, 400);
+    // Use a timer to defer setSize() to avoid initialization crashes
+    // This prevents JUCE from calling resized() during component initialization
+    juce::Timer::callAfterDelay(1, [this]() {
+        setSize(480, 400);
+        positionComponents();
+    });
 }
 
 SoundCollectorAudioProcessorEditor::~SoundCollectorAudioProcessorEditor()
 {
+    // Clean up LookAndFeel objects before components are destroyed
+    if (saveLocationLookAndFeel)
+    {
+        settingsButton.setLookAndFeel(nullptr);
+        delete saveLocationLookAndFeel;
+        saveLocationLookAndFeel = nullptr;
+    }
+
+    if (quickSaveLookAndFeel)
+    {
+        recordButton.setLookAndFeel(nullptr);
+        delete quickSaveLookAndFeel;
+        quickSaveLookAndFeel = nullptr;
+    }
 }
 
 //==============================================================================
@@ -376,31 +390,24 @@ void SoundCollectorAudioProcessorEditor::loadBackgroundImage()
         juce::FileInputStream inputStream(backgroundFile);
         if (inputStream.openedOk())
         {
-            // Try loading with ImageFileFormat
             backgroundImage = juce::ImageFileFormat::loadFrom(inputStream);
-            if (!backgroundImage.isValid())
-            {
-                // Try alternative loading method
-                backgroundImage = juce::ImageCache::getFromFile(backgroundFile);
-            }
-            
             if (backgroundImage.isValid())
             {
-                DBG("Background image loaded successfully: " + backgroundFile.getFullPathName());
+                DBG("Background image loaded successfully from: " + backgroundFile.getFullPathName());
             }
             else
             {
                 DBG("Failed to load background image from: " + backgroundFile.getFullPathName());
             }
         }
+        else
+        {
+            DBG("Failed to open background image file: " + backgroundFile.getFullPathName());
+        }
     }
     else
     {
-        DBG("Background image file not found. Tried paths:");
-        for (const auto& path : possiblePaths)
-        {
-            DBG("  " + path.getFullPathName() + " (exists: " + (path.existsAsFile() ? "yes" : "no") + ")");
-        }
+        DBG("Background image not found in any of the expected locations");
     }
 }
 
@@ -409,8 +416,6 @@ void SoundCollectorAudioProcessorEditor::loadButtonImages()
 {
     // Try to load button images from various locations
     juce::File bundleFile = juce::File::getSpecialLocation(juce::File::currentExecutableFile);
-
-    // Try multiple paths for the button images
     juce::Array<juce::File> possiblePaths;
 
     // 1. App bundle Resources directory
@@ -434,52 +439,66 @@ void SoundCollectorAudioProcessorEditor::loadButtonImages()
                                .getParentDirectory();       // project_root/
     possiblePaths.add(projectRoot.getChildFile("Source").getChildFile("Assets"));
 
-    // Load Save Location button images
+    // Try to load Save Location button images
     for (const auto& path : possiblePaths)
     {
-        juce::File normalFile = path.getChildFile("button-location.png");
-        juce::File hoverFile = path.getChildFile("button-location-hover.png");
+        juce::File saveLocationFile = path.getChildFile("button-location.png");
+        juce::File saveLocationHoverFile = path.getChildFile("button-location-hover.png");
 
-        if (normalFile.existsAsFile() && hoverFile.existsAsFile())
+        if (saveLocationFile.existsAsFile() && saveLocationHoverFile.existsAsFile())
         {
-            saveLocationButtonImage = juce::ImageCache::getFromFile(normalFile);
-            saveLocationButtonHoverImage = juce::ImageCache::getFromFile(hoverFile);
-            
-            if (saveLocationButtonImage.isValid() && saveLocationButtonHoverImage.isValid())
+            juce::FileInputStream inputStream1(saveLocationFile);
+            juce::FileInputStream inputStream2(saveLocationHoverFile);
+
+            if (inputStream1.openedOk() && inputStream2.openedOk())
             {
-                DBG("Save Location button images loaded successfully from: " + path.getFullPathName());
-            }
-            else
-            {
-                DBG("Failed to load Save Location button images from: " + path.getFullPathName());
+                saveLocationButtonImage = juce::ImageFileFormat::loadFrom(inputStream1);
+                saveLocationButtonHoverImage = juce::ImageFileFormat::loadFrom(inputStream2);
+
+                if (saveLocationButtonImage.isValid() && saveLocationButtonHoverImage.isValid())
+                {
+                    DBG("Save Location button images loaded successfully from: " + path.getFullPathName());
+                    break;
+                }
+                else
+                {
+                    DBG("Failed to load Save Location button images from: " + path.getFullPathName());
+                }
             }
             break;
         }
     }
 
-    // Load Quick Save button images
+    // Try to load Quick Save button images
     for (const auto& path : possiblePaths)
     {
-        juce::File normalFile = path.getChildFile("button-save.png");
-        juce::File hoverFile = path.getChildFile("button-save-hover.png");
+        juce::File quickSaveFile = path.getChildFile("button-save.png");
+        juce::File quickSaveHoverFile = path.getChildFile("button-save-hover.png");
 
-        if (normalFile.existsAsFile() && hoverFile.existsAsFile())
+        if (quickSaveFile.existsAsFile() && quickSaveHoverFile.existsAsFile())
         {
-            quickSaveButtonImage = juce::ImageCache::getFromFile(normalFile);
-            quickSaveButtonHoverImage = juce::ImageCache::getFromFile(hoverFile);
-            
-            if (quickSaveButtonImage.isValid() && quickSaveButtonHoverImage.isValid())
+            juce::FileInputStream inputStream1(quickSaveFile);
+            juce::FileInputStream inputStream2(quickSaveHoverFile);
+
+            if (inputStream1.openedOk() && inputStream2.openedOk())
             {
-                DBG("Quick Save button images loaded successfully from: " + path.getFullPathName());
-            }
-            else
-            {
-                DBG("Failed to load Quick Save button images from: " + path.getFullPathName());
+                quickSaveButtonImage = juce::ImageFileFormat::loadFrom(inputStream1);
+                quickSaveButtonHoverImage = juce::ImageFileFormat::loadFrom(inputStream2);
+
+                if (quickSaveButtonImage.isValid() && quickSaveButtonHoverImage.isValid())
+                {
+                    DBG("Quick Save button images loaded successfully from: " + path.getFullPathName());
+                    break;
+                }
+                else
+                {
+                    DBG("Failed to load Quick Save button images from: " + path.getFullPathName());
+                }
             }
             break;
         }
     }
-    
+
     // Debug: Check if all button images were loaded successfully
     if (!saveLocationButtonImage.isValid() || !saveLocationButtonHoverImage.isValid())
     {
@@ -489,13 +508,6 @@ void SoundCollectorAudioProcessorEditor::loadButtonImages()
     {
         DBG("Warning: Quick Save button images not loaded properly");
     }
-}
-
-//==============================================================================
-void SoundCollectorAudioProcessorEditor::timerCallback()
-{
-    // Timer callback implementation for juce::Timer inheritance
-    // The actual timer logic is handled by MeterTimer class
 }
 
 //==============================================================================
@@ -533,30 +545,34 @@ void SoundCollectorAudioProcessorEditor::paint(juce::Graphics& g)
         g.fillAll(getLookAndFeel().findColour(juce::ResizableWindow::backgroundColourId));
     }
 
-    // g.setColour(juce::Colours::white);
-    // g.setFont(juce::FontOptions(14.0f));
-    // g.drawFittedText("Sound Collector", getLocalBounds().removeFromTop(30), juce::Justification::left, 1);
-
     // Draw instruction text with explicit line wrapping
     g.setColour(juce::Colours::white.withAlpha(0.5f));
     g.setFont(juce::FontOptions(14.0f));
     juce::Rectangle<int> instructionRect(32, 76, 300, 50);
     g.drawFittedText("Choose a save folder and filename - Sound Collector keeps the last 10s of your audio, auto-saved.",
                      instructionRect, juce::Justification::topLeft, 3); // 3 lines maximum for wrapping
-
-    // Footer info is displayed through label components - no need to draw here
 }
 
 //==============================================================================
 void SoundCollectorAudioProcessorEditor::resized()
 {
-    auto bounds = getLocalBounds();
-    const int padding = 8;
-    const int headerHeight = 40;
-    const int footerHeight = 40;
+    // Fixed size plugin - components positioned in constructor only
+    // This method is called automatically by JUCE but we don't need to do anything
+    // since we position components manually in the constructor after everything is ready
+}
 
-    // Top: Header row
-    bounds.removeFromTop(headerHeight);
+void SoundCollectorAudioProcessorEditor::positionComponents()
+{
+    // Fixed size plugin - use absolute positioning
+    // Add safety checks to prevent crashes during initialization
+
+    // Validate that the editor has valid bounds before positioning components
+    auto editorBounds = getLocalBounds();
+    if (editorBounds.getWidth() <= 0 || editorBounds.getHeight() <= 0)
+    {
+        DBG("Warning: Editor bounds invalid in positionComponents() - deferring positioning");
+        return;
+    }
 
     // Settings button positioned at specific coordinates
     settingsButton.setBounds(32, 133, 126, 32);
@@ -564,39 +580,26 @@ void SoundCollectorAudioProcessorEditor::resized()
     // Filename input positioned at specific coordinates
     filePrefixInput.setBounds(166, 133, 168, 32);
 
-    // Bottom: Footer row
-    auto footerBounds = bounds.removeFromBottom(footerHeight);
-    auto footerContent = footerBounds.reduced(padding);
-
     // Buffer and auto-save info positioned at 376px from top, 32px from left edge
     bufferLabel.setBounds(16, 376, 200, 16); // Absolute position: 32px from left, 376px from top
-    // autoSaveLabel.setBounds(leftBounds.removeFromTop(labelHeight).reduced(padding, 0)); // Removed since combined with bufferLabel
 
     // Version info on the right
     versionLabel.setBounds(419, 373, 44, 20); // Fixed position: 419px from left, 373px from top, 44x20 section
 
-    // Middle: Split into left and right columns
-    auto leftColumn = bounds.removeFromLeft(bounds.getWidth() * 6 / 8);
-    auto rightColumn = bounds;
-
-    // Left column: Status display
-    auto statusBounds = leftColumn.reduced(padding);
-
-
-        // Quick save button positioned at specific coordinates with exact size
+    // Quick save button positioned at specific coordinates with exact size
     recordButton.setBounds(16, 288, 112, 32);
     // Test tone button positioned to the right of Quick Save button
     testToneToggle.setBounds(133, 288, 100, 32);
     recordingStatusLabel.setBounds(32, 212, 200, 20);
 
-    // Instruction text is drawn directly in paint() method - no bounds needed
-
     // Position "Last saved:" text directly below "Waiting for audio" text
     lastSaveTitleLabel.setBounds(32, 232, 100, 20); // Fixed width for "Last saved:"
     lastSaveLabel.setBounds(100, 232, 150, 20); // Timestamp positioned to the right
 
-    // Right column: Level meter
-    levelMeterComponent.setBounds(rightColumn.reduced(padding));
+    // Level meter - fixed position
+    levelMeterComponent.setBounds(350, 40, 100, 300);
+
+    DBG("Components positioned successfully");
 }
 
 //==============================================================================

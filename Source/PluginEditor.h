@@ -34,8 +34,7 @@ private:
 */
 class SoundCollectorAudioProcessorEditor  : public juce::AudioProcessorEditor,
                                            public juce::Button::Listener,
-                                           public juce::TextEditor::Listener,
-                                           public juce::Timer
+                                           public juce::TextEditor::Listener
 {
 public:
 
@@ -77,12 +76,12 @@ public:
 
     // Background image loading
     void loadBackgroundImage();
-    
+
     // Button image loading
     void loadButtonImages();
 
-    // Timer callback implementation
-    void timerCallback() override;
+    // Component positioning
+    void positionComponents();
 
 private:
     // This reference is provided as a quick way for your editor to
@@ -116,12 +115,16 @@ private:
 
     // Background image
     juce::Image backgroundImage;
-    
+
     // Button background images
     juce::Image saveLocationButtonImage;
     juce::Image saveLocationButtonHoverImage;
     juce::Image quickSaveButtonImage;
     juce::Image quickSaveButtonHoverImage;
+
+    // LookAndFeel instances as raw pointers (safer than static)
+    juce::LookAndFeel* saveLocationLookAndFeel;
+    juce::LookAndFeel* quickSaveLookAndFeel;
 
     // Timer for updating meters
     std::unique_ptr<MeterTimer> meterTimer;

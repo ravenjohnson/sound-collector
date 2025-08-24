@@ -19,12 +19,14 @@ public:
     {
         // Input label
         inputLabel.setText("Input", juce::dontSendNotification);
+        inputLabel.setColour(juce::Label::textColourId, juce::Colours::white);
         inputLabel.setJustificationType(juce::Justification::centred);
         inputLabel.setFont(juce::Font(juce::FontOptions(12.0f)).boldened());
         addAndMakeVisible(inputLabel);
 
         // dB value label below meter
         inputDbLabel.setJustificationType(juce::Justification::centred);
+        inputDbLabel.setColour(juce::Label::textColourId, juce::Colours::white);
         inputDbLabel.setFont(juce::Font(juce::FontOptions(10.0f)));
         addAndMakeVisible(inputDbLabel);
 
@@ -32,10 +34,15 @@ public:
         averagedInputLevel = 0.0f;
         smoothingFactor = 0.1f; // Adjust for more/less smoothing (0.01 = very smooth, 0.5 = responsive)
 
-        startTimerHz(20); // Reduced from 30Hz to 20Hz for better CPU efficiency
+        startTimerHz(20); // Update at 20Hz for better CPU efficiency
     }
 
-        void resized() override
+    ~LevelMeterComponent()
+    {
+        stopTimer();
+    }
+
+    void resized() override
     {
         auto area = getLocalBounds();
 
@@ -49,7 +56,7 @@ public:
         inputDbLabel.setBounds(area.removeFromTop(labelHeight));
     }
 
-        void paint(juce::Graphics& g) override
+    void paint(juce::Graphics& g) override
     {
         // Draw meter background
         g.setColour(juce::Colours::darkgrey);
@@ -64,7 +71,7 @@ public:
     }
 
 private:
-            void timerCallback() override
+    void timerCallback() override
     {
         if (auto* p = dynamic_cast<class SoundCollectorAudioProcessor*>(&audioProcessor))
         {
@@ -125,7 +132,7 @@ private:
         g.drawRect(barBounds, 1);
     }
 
-        juce::AudioProcessor& audioProcessor;
+    juce::AudioProcessor& audioProcessor;
 
     // Labels
     juce::Label inputLabel;
