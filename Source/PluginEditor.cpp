@@ -12,10 +12,16 @@ MeterTimer::MeterTimer(SoundCollectorAudioProcessorEditor& editor) : owner(edito
 //==============================================================================
 SoundCollectorAudioProcessorEditor::SoundCollectorAudioProcessorEditor(SoundCollectorAudioProcessor& p)
     : AudioProcessorEditor(&p), audioProcessor(p),
-      levelMeterComponent(static_cast<juce::AudioProcessor&>(p))
+      levelMeterComponent(static_cast<juce::AudioProcessor&>(p)),
+      saveLocationLookAndFeel(nullptr),
+      quickSaveLookAndFeel(nullptr)
 {
     // Debug: Constructor called
     DBG("PluginEditor constructor called");
+
+    // Load images FIRST before creating any UI components
+    loadBackgroundImage();
+    loadButtonImages();
 
     // Set fixed size - plugin is not resizable
     setResizable(false, false);
@@ -258,17 +264,13 @@ SoundCollectorAudioProcessorEditor::SoundCollectorAudioProcessorEditor(SoundColl
     versionLabel.setText(PLUGIN_VERSION, juce::dontSendNotification);
     addAndMakeVisible(versionLabel);
 
-    // Load background image
-    loadBackgroundImage();
-
-    // Load button background images
-    loadButtonImages();
-
     // Apply button LookAndFeel with loaded images (only if images are valid)
-    // Create LookAndFeel objects as heap-allocated instances to avoid static issues
-    saveLocationLookAndFeel = nullptr;
-    quickSaveLookAndFeel = nullptr;
-
+    DBG("Checking image validity before creating LookAndFeel objects...");
+    DBG("saveLocationButtonImage valid: " + juce::String(saveLocationButtonImage.isValid() ? "true" : "false"));
+    DBG("saveLocationButtonHoverImage valid: " + juce::String(saveLocationButtonHoverImage.isValid() ? "true" : "false"));
+    DBG("quickSaveButtonImage valid: " + juce::String(quickSaveButtonImage.isValid() ? "true" : "false"));
+    DBG("quickSaveButtonHoverImage valid: " + juce::String(quickSaveButtonHoverImage.isValid() ? "true" : "false"));
+    
     if (saveLocationButtonImage.isValid() && saveLocationButtonHoverImage.isValid())
     {
         saveLocationLookAndFeel = new SaveLocationButtonLookAndFeel(saveLocationButtonImage, saveLocationButtonHoverImage);
@@ -346,157 +348,60 @@ SoundCollectorAudioProcessorEditor::~SoundCollectorAudioProcessorEditor()
 //==============================================================================
 void SoundCollectorAudioProcessorEditor::loadBackgroundImage()
 {
-    // Try to load background image from various locations
-    juce::File backgroundFile;
-
-    // Try multiple paths for the background image
-    juce::Array<juce::File> possiblePaths;
-
-    // 1. App bundle Resources directory
-    juce::File bundleFile = juce::File::getSpecialLocation(juce::File::currentExecutableFile);
-    if (bundleFile.getParentDirectory().getFileName() == "MacOS")
+    // Load background image from BinaryData (works for both standalone and AU plugin)
+    DBG("Attempting to load background image from BinaryData...");
+    DBG("BinaryData::background_png pointer: " + juce::String::toHexString((intptr_t)BinaryData::background_png));
+    DBG("BinaryData::background_pngSize: " + juce::String(BinaryData::background_pngSize));
+    
+    backgroundImage = juce::ImageFileFormat::loadFrom(BinaryData::background_png, BinaryData::background_pngSize);
+    
+    if (backgroundImage.isValid())
     {
-        possiblePaths.add(bundleFile.getParentDirectory().getParentDirectory()
-                         .getChildFile("Resources")
-                         .getChildFile("background.png"));
-    }
-
-    // 2. Executable directory
-    possiblePaths.add(bundleFile.getChildFile("background.png"));
-
-    // 3. Development path (relative to project root)
-    juce::File projectRoot = bundleFile.getParentDirectory()  // Contents/MacOS/
-                               .getParentDirectory()        // Contents/
-                               .getParentDirectory()        // SoundCollector.app/
-                               .getParentDirectory()        // Debug/
-                               .getParentDirectory()        // build/
-                               .getParentDirectory()        // MacOSX/
-                               .getParentDirectory()        // Builds/
-                               .getParentDirectory();       // project_root/
-    possiblePaths.add(projectRoot.getChildFile("Source").getChildFile("Assets").getChildFile("background.png"));
-
-    // Try each path
-    for (const auto& path : possiblePaths)
-    {
-        if (path.existsAsFile())
-        {
-            backgroundFile = path;
-            break;
-        }
-    }
-
-    if (backgroundFile.existsAsFile())
-    {
-        juce::FileInputStream inputStream(backgroundFile);
-        if (inputStream.openedOk())
-        {
-            backgroundImage = juce::ImageFileFormat::loadFrom(inputStream);
-            if (backgroundImage.isValid())
-            {
-                DBG("Background image loaded successfully from: " + backgroundFile.getFullPathName());
-            }
-            else
-            {
-                DBG("Failed to load background image from: " + backgroundFile.getFullPathName());
-            }
-        }
-        else
-        {
-            DBG("Failed to open background image file: " + backgroundFile.getFullPathName());
-        }
+        DBG("Background image loaded successfully from BinaryData - Size: " + 
+            juce::String(backgroundImage.getWidth()) + "x" + juce::String(backgroundImage.getHeight()));
     }
     else
     {
-        DBG("Background image not found in any of the expected locations");
+        DBG("Failed to load background image from BinaryData");
     }
 }
 
 //==============================================================================
 void SoundCollectorAudioProcessorEditor::loadButtonImages()
 {
-    // Try to load button images from various locations
-    juce::File bundleFile = juce::File::getSpecialLocation(juce::File::currentExecutableFile);
-    juce::Array<juce::File> possiblePaths;
-
-    // 1. App bundle Resources directory
-    if (bundleFile.getParentDirectory().getFileName() == "MacOS")
+    // Load button images from BinaryData (works for both standalone and AU plugin)
+    DBG("Attempting to load button images from BinaryData...");
+    
+    // Load Save Location button images
+    DBG("Loading Save Location button images...");
+    saveLocationButtonImage = juce::ImageFileFormat::loadFrom(BinaryData::buttonlocation_png, BinaryData::buttonlocation_pngSize);
+    saveLocationButtonHoverImage = juce::ImageFileFormat::loadFrom(BinaryData::buttonlocationhover_png, BinaryData::buttonlocationhover_pngSize);
+    
+    if (saveLocationButtonImage.isValid() && saveLocationButtonHoverImage.isValid())
     {
-        possiblePaths.add(bundleFile.getParentDirectory().getParentDirectory()
-                         .getChildFile("Resources"));
+        DBG("Save Location button images loaded successfully from BinaryData");
     }
-
-    // 2. Executable directory
-    possiblePaths.add(bundleFile.getParentDirectory());
-
-    // 3. Development path (relative to project root)
-    juce::File projectRoot = bundleFile.getParentDirectory()  // Contents/MacOS/
-                               .getParentDirectory()        // Contents/
-                               .getParentDirectory()        // SoundCollector.app/
-                               .getParentDirectory()        // Debug/
-                               .getParentDirectory()        // build/
-                               .getParentDirectory()        // MacOSX/
-                               .getParentDirectory()        // Builds/
-                               .getParentDirectory();       // project_root/
-    possiblePaths.add(projectRoot.getChildFile("Source").getChildFile("Assets"));
-
-    // Try to load Save Location button images
-    for (const auto& path : possiblePaths)
+    else
     {
-        juce::File saveLocationFile = path.getChildFile("button-location.png");
-        juce::File saveLocationHoverFile = path.getChildFile("button-location-hover.png");
-
-        if (saveLocationFile.existsAsFile() && saveLocationHoverFile.existsAsFile())
-        {
-            juce::FileInputStream inputStream1(saveLocationFile);
-            juce::FileInputStream inputStream2(saveLocationHoverFile);
-
-            if (inputStream1.openedOk() && inputStream2.openedOk())
-            {
-                saveLocationButtonImage = juce::ImageFileFormat::loadFrom(inputStream1);
-                saveLocationButtonHoverImage = juce::ImageFileFormat::loadFrom(inputStream2);
-
-                if (saveLocationButtonImage.isValid() && saveLocationButtonHoverImage.isValid())
-                {
-                    DBG("Save Location button images loaded successfully from: " + path.getFullPathName());
-                    break;
-                }
-                else
-                {
-                    DBG("Failed to load Save Location button images from: " + path.getFullPathName());
-                }
-            }
-            break;
-        }
+        DBG("Failed to load Save Location button images from BinaryData");
+        if (!saveLocationButtonImage.isValid()) DBG("  - saveLocationButtonImage is invalid");
+        if (!saveLocationButtonHoverImage.isValid()) DBG("  - saveLocationButtonHoverImage is invalid");
     }
-
-    // Try to load Quick Save button images
-    for (const auto& path : possiblePaths)
+    
+    // Load Quick Save button images
+    DBG("Loading Quick Save button images...");
+    quickSaveButtonImage = juce::ImageFileFormat::loadFrom(BinaryData::buttonsave_png, BinaryData::buttonsave_pngSize);
+    quickSaveButtonHoverImage = juce::ImageFileFormat::loadFrom(BinaryData::buttonsavehover_png, BinaryData::buttonsavehover_pngSize);
+    
+    if (quickSaveButtonImage.isValid() && quickSaveButtonHoverImage.isValid())
     {
-        juce::File quickSaveFile = path.getChildFile("button-save.png");
-        juce::File quickSaveHoverFile = path.getChildFile("button-save-hover.png");
-
-        if (quickSaveFile.existsAsFile() && quickSaveHoverFile.existsAsFile())
-        {
-            juce::FileInputStream inputStream1(quickSaveFile);
-            juce::FileInputStream inputStream2(quickSaveHoverFile);
-
-            if (inputStream1.openedOk() && inputStream2.openedOk())
-            {
-                quickSaveButtonImage = juce::ImageFileFormat::loadFrom(inputStream1);
-                quickSaveButtonHoverImage = juce::ImageFileFormat::loadFrom(inputStream2);
-
-                if (quickSaveButtonImage.isValid() && quickSaveButtonHoverImage.isValid())
-                {
-                    DBG("Quick Save button images loaded successfully from: " + path.getFullPathName());
-                    break;
-                }
-                else
-                {
-                    DBG("Failed to load Quick Save button images from: " + path.getFullPathName());
-                }
-            }
-            break;
-        }
+        DBG("Quick Save button images loaded successfully from BinaryData");
+    }
+    else
+    {
+        DBG("Failed to load Quick Save button images from BinaryData");
+        if (!quickSaveButtonImage.isValid()) DBG("  - quickSaveButtonImage is invalid");
+        if (!quickSaveButtonHoverImage.isValid()) DBG("  - quickSaveButtonHoverImage is invalid");
     }
 
     // Debug: Check if all button images were loaded successfully
