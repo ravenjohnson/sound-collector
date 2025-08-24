@@ -45,10 +45,19 @@ SoundCollectorAudioProcessorEditor::SoundCollectorAudioProcessorEditor(SoundColl
             // Draw the appropriate background image based on mouse state
             juce::Image& imageToDraw = isMouseOverButton ? hoverButtonImage : normalButtonImage;
 
-            if (imageToDraw.isValid())
+            // More robust validation - check image validity and bounds
+            if (imageToDraw.isValid() && imageToDraw.getWidth() > 0 && imageToDraw.getHeight() > 0)
             {
                 auto bounds = button.getLocalBounds().toFloat();
-                g.drawImage(imageToDraw, bounds, juce::RectanglePlacement::stretchToFit);
+                if (bounds.getWidth() > 0 && bounds.getHeight() > 0)
+                {
+                    g.drawImage(imageToDraw, bounds, juce::RectanglePlacement::stretchToFit);
+                }
+            }
+            else
+            {
+                // Fallback to default button background if image is invalid
+                juce::LookAndFeel_V4::drawButtonBackground(g, button, backgroundColour, isMouseOverButton, isButtonDown);
             }
         }
 
@@ -168,10 +177,19 @@ SoundCollectorAudioProcessorEditor::SoundCollectorAudioProcessorEditor(SoundColl
             // Draw the appropriate background image based on mouse state
             juce::Image& imageToDraw = isMouseOverButton ? hoverButtonImage : normalButtonImage;
 
-            if (imageToDraw.isValid())
+            // More robust validation - check image validity and bounds
+            if (imageToDraw.isValid() && imageToDraw.getWidth() > 0 && imageToDraw.getHeight() > 0)
             {
                 auto bounds = button.getLocalBounds().toFloat();
-                g.drawImage(imageToDraw, bounds, juce::RectanglePlacement::stretchToFit);
+                if (bounds.getWidth() > 0 && bounds.getHeight() > 0)
+                {
+                    g.drawImage(imageToDraw, bounds, juce::RectanglePlacement::stretchToFit);
+                }
+            }
+            else
+            {
+                // Fallback to default button background if image is invalid
+                juce::LookAndFeel_V4::drawButtonBackground(g, button, backgroundColour, isMouseOverButton, isButtonDown);
             }
         }
 
@@ -255,11 +273,28 @@ SoundCollectorAudioProcessorEditor::SoundCollectorAudioProcessorEditor(SoundColl
     // Load button background images
     loadButtonImages();
 
-    // Apply button LookAndFeel with loaded images
+    // Apply button LookAndFeel with loaded images (only if images are valid)
     static SaveLocationButtonLookAndFeel saveLocationLookAndFeel(saveLocationButtonImage, saveLocationButtonHoverImage);
     static QuickSaveButtonLookAndFeel quickSaveLookAndFeel(quickSaveButtonImage, quickSaveButtonHoverImage);
-    settingsButton.setLookAndFeel(&saveLocationLookAndFeel);
-    recordButton.setLookAndFeel(&quickSaveLookAndFeel);
+    
+    // Only apply custom LookAndFeel if images are valid, otherwise use default
+    if (saveLocationButtonImage.isValid() && saveLocationButtonHoverImage.isValid())
+    {
+        settingsButton.setLookAndFeel(&saveLocationLookAndFeel);
+    }
+    else
+    {
+        DBG("Using default LookAndFeel for settings button due to invalid images");
+    }
+    
+    if (quickSaveButtonImage.isValid() && quickSaveButtonHoverImage.isValid())
+    {
+        recordButton.setLookAndFeel(&quickSaveLookAndFeel);
+    }
+    else
+    {
+        DBG("Using default LookAndFeel for record button due to invalid images");
+    }
 
     // Meter timer
     meterTimer = std::make_unique<MeterTimer>(*this);
@@ -348,6 +383,23 @@ void SoundCollectorAudioProcessorEditor::loadBackgroundImage()
                 // Try alternative loading method
                 backgroundImage = juce::ImageCache::getFromFile(backgroundFile);
             }
+            
+            if (backgroundImage.isValid())
+            {
+                DBG("Background image loaded successfully: " + backgroundFile.getFullPathName());
+            }
+            else
+            {
+                DBG("Failed to load background image from: " + backgroundFile.getFullPathName());
+            }
+        }
+    }
+    else
+    {
+        DBG("Background image file not found. Tried paths:");
+        for (const auto& path : possiblePaths)
+        {
+            DBG("  " + path.getFullPathName() + " (exists: " + (path.existsAsFile() ? "yes" : "no") + ")");
         }
     }
 }
@@ -392,6 +444,15 @@ void SoundCollectorAudioProcessorEditor::loadButtonImages()
         {
             saveLocationButtonImage = juce::ImageCache::getFromFile(normalFile);
             saveLocationButtonHoverImage = juce::ImageCache::getFromFile(hoverFile);
+            
+            if (saveLocationButtonImage.isValid() && saveLocationButtonHoverImage.isValid())
+            {
+                DBG("Save Location button images loaded successfully from: " + path.getFullPathName());
+            }
+            else
+            {
+                DBG("Failed to load Save Location button images from: " + path.getFullPathName());
+            }
             break;
         }
     }
@@ -406,8 +467,27 @@ void SoundCollectorAudioProcessorEditor::loadButtonImages()
         {
             quickSaveButtonImage = juce::ImageCache::getFromFile(normalFile);
             quickSaveButtonHoverImage = juce::ImageCache::getFromFile(hoverFile);
+            
+            if (quickSaveButtonImage.isValid() && quickSaveButtonHoverImage.isValid())
+            {
+                DBG("Quick Save button images loaded successfully from: " + path.getFullPathName());
+            }
+            else
+            {
+                DBG("Failed to load Quick Save button images from: " + path.getFullPathName());
+            }
             break;
         }
+    }
+    
+    // Debug: Check if all button images were loaded successfully
+    if (!saveLocationButtonImage.isValid() || !saveLocationButtonHoverImage.isValid())
+    {
+        DBG("Warning: Save Location button images not loaded properly");
+    }
+    if (!quickSaveButtonImage.isValid() || !quickSaveButtonHoverImage.isValid())
+    {
+        DBG("Warning: Quick Save button images not loaded properly");
     }
 }
 
