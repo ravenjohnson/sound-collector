@@ -515,13 +515,9 @@ void SoundCollectorAudioProcessorEditor::resized()
 
     // Instruction text is drawn directly in paint() method - no bounds needed
 
-    // Calculate dynamic width for "Last saved:" label using font metrics
-    int titleWidth = lastSaveTitleLabel.getFont().getStringWidth(lastSaveTitleLabel.getText()) + 8; // 8px padding
-    lastSaveTitleLabel.setBounds(32, 232, titleWidth, 20); // Positioned directly under recordingStatusLabel
-
-    // Position the value label right after the title label with dynamic width
-    int valueWidth = lastSaveLabel.getFont().getStringWidth(lastSaveLabel.getText()) + 8; // 8px padding
-    lastSaveLabel.setBounds(32 + titleWidth + 6, 232, valueWidth, 20); // 6px gap between labels
+    // Position "Last saved:" text directly below "Waiting for audio" text
+    lastSaveTitleLabel.setBounds(32, 232, 100, 20); // Fixed width for "Last saved:"
+    lastSaveLabel.setBounds(132, 232, 150, 20); // Timestamp positioned to the right
 
     // Right column: Level meter
     levelMeterComponent.setBounds(rightColumn.reduced(padding));

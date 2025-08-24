@@ -403,7 +403,7 @@ void SoundCollectorAudioProcessor::saveLastRecording(bool isAutoSave)
         // Final fallback
         if (prefix.isEmpty() || prefix == "Filename")
         {
-            prefix = isAutoSave ? "AutoSave" : "SoundCollector";
+            prefix = isAutoSave ? "SoundCollector" : "SoundCollector";
         }
     }
 
