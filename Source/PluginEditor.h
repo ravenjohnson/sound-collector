@@ -111,7 +111,7 @@ private:
 
     // Footer components
     juce::Label bufferLabel;
-    juce::Label autoSaveLabel;
+    // juce::Label autoSaveLabel; // Removed since combined with bufferLabel
     juce::Label versionLabel;
 
     // Background image

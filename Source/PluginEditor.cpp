@@ -218,7 +218,7 @@ SoundCollectorAudioProcessorEditor::SoundCollectorAudioProcessorEditor(SoundColl
     lastSaveTitleLabel.setText("Last saved:", juce::dontSendNotification);
     lastSaveTitleLabel.setJustificationType(juce::Justification::centredLeft);
     lastSaveTitleLabel.setFont(juce::Font(juce::FontOptions().withHeight(14.0f)));
-    lastSaveTitleLabel.setColour(juce::Label::textColourId, juce::Colours::white);
+    lastSaveTitleLabel.setColour(juce::Label::textColourId, juce::Colours::grey);
     addAndMakeVisible(lastSaveTitleLabel);
 
     lastSaveLabel.setText("None", juce::dontSendNotification);
@@ -228,19 +228,20 @@ SoundCollectorAudioProcessorEditor::SoundCollectorAudioProcessorEditor(SoundColl
     addAndMakeVisible(lastSaveLabel);
 
     // Footer components
-    bufferLabel.setJustificationType(juce::Justification::centredLeft);
+    bufferLabel.setJustificationType(juce::Justification::left);
     bufferLabel.setFont(juce::FontOptions(14.0f));
     bufferLabel.setColour(juce::Label::textColourId, juce::Colours::grey);
-    bufferLabel.setText("Buffer: 10.0s", juce::dontSendNotification);
+    bufferLabel.setText("Buffer: 10.0s | Auto-Save: " + juce::String(audioProcessor.getAutoSaveDuration(), 1) + "s", juce::dontSendNotification);
     addAndMakeVisible(bufferLabel);
 
-    autoSaveLabel.setJustificationType(juce::Justification::centredLeft);
-    autoSaveLabel.setFont(juce::FontOptions(14.0f));
-    autoSaveLabel.setColour(juce::Label::textColourId, juce::Colours::grey);
-    autoSaveLabel.setText("Auto-Save: " + juce::String(audioProcessor.getAutoSaveDuration(), 1) + "s", juce::dontSendNotification);
-    addAndMakeVisible(autoSaveLabel);
+    // Remove autoSaveLabel since we're combining it with bufferLabel
+    // autoSaveLabel.setJustificationType(juce::Justification::centredLeft);
+    // autoSaveLabel.setFont(juce::FontOptions(14.0f));
+    // autoSaveLabel.setColour(juce::Label::textColourId, juce::Colours::grey);
+    // autoSaveLabel.setText("Auto-Save: " + juce::String(audioProcessor.getAutoSaveDuration(), 1) + "s", juce::dontSendNotification);
+    // addAndMakeVisible(autoSaveLabel);
 
-    versionLabel.setJustificationType(juce::Justification::centredRight);
+    versionLabel.setJustificationType(juce::Justification::centred);
     versionLabel.setFont(juce::FontOptions(14.0f));
     versionLabel.setColour(juce::Label::textColourId, juce::Colours::grey);
     versionLabel.setText(PLUGIN_VERSION, juce::dontSendNotification);
@@ -463,10 +464,7 @@ void SoundCollectorAudioProcessorEditor::paint(juce::Graphics& g)
     g.drawFittedText("Choose a save folder and filename - Sound Collector keeps the last 10s of your audio, auto-saved.",
                      instructionRect, juce::Justification::topLeft, 3); // 3 lines maximum for wrapping
 
-    g.setFont(juce::FontOptions(14.0f));
-    juce::String infoText = "Buffer: 10s | Auto-Save: " +
-                            juce::String(audioProcessor.getAutoSaveDuration(), 1) + "s";
-    g.drawFittedText(infoText, getLocalBounds().removeFromBottom(30), juce::Justification::centred, 1);
+    // Footer info is displayed through label components - no need to draw here
 }
 
 //==============================================================================
@@ -490,14 +488,12 @@ void SoundCollectorAudioProcessorEditor::resized()
     auto footerBounds = bounds.removeFromBottom(footerHeight);
     auto footerContent = footerBounds.reduced(padding);
 
-    // Buffer and auto-save info on the left
-    auto leftBounds = footerContent.removeFromLeft(footerContent.getWidth() / 2);
-    const int labelHeight = 16;
-    bufferLabel.setBounds(leftBounds.removeFromTop(labelHeight).reduced(padding, 0));
-    autoSaveLabel.setBounds(leftBounds.removeFromTop(labelHeight).reduced(padding, 0));
+    // Buffer and auto-save info positioned at 376px from top, 32px from left edge
+    bufferLabel.setBounds(16, 376, 200, 16); // Absolute position: 32px from left, 376px from top
+    // autoSaveLabel.setBounds(leftBounds.removeFromTop(labelHeight).reduced(padding, 0)); // Removed since combined with bufferLabel
 
     // Version info on the right
-    versionLabel.setBounds(footerContent.reduced(padding, 0));
+    versionLabel.setBounds(419, 373, 44, 20); // Fixed position: 419px from left, 373px from top, 44x20 section
 
     // Middle: Split into left and right columns
     auto leftColumn = bounds.removeFromLeft(bounds.getWidth() * 6 / 8);
@@ -517,7 +513,7 @@ void SoundCollectorAudioProcessorEditor::resized()
 
     // Position "Last saved:" text directly below "Waiting for audio" text
     lastSaveTitleLabel.setBounds(32, 232, 100, 20); // Fixed width for "Last saved:"
-    lastSaveLabel.setBounds(132, 232, 150, 20); // Timestamp positioned to the right
+    lastSaveLabel.setBounds(100, 232, 150, 20); // Timestamp positioned to the right
 
     // Right column: Level meter
     levelMeterComponent.setBounds(rightColumn.reduced(padding));
