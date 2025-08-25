@@ -18,11 +18,11 @@ public:
         : audioProcessor(processor)
     {
         // Input label
-        inputLabel.setText("Input", juce::dontSendNotification);
-        inputLabel.setColour(juce::Label::textColourId, juce::Colours::white);
-        inputLabel.setJustificationType(juce::Justification::centred);
-        inputLabel.setFont(juce::Font(juce::FontOptions(12.0f)).boldened());
-        addAndMakeVisible(inputLabel);
+        //inputLabel.setText("Input", juce::dontSendNotification);
+        // inputLabel.setColour(juce::Label::textColourId, juce::Colours::white);
+        // inputLabel.setJustificationType(juce::Justification::centred);
+        // inputLabel.setFont(juce::Font(juce::FontOptions(12.0f)).boldened());
+        // addAndMakeVisible(inputLabel);
 
         // dB value label below meter
         inputDbLabel.setJustificationType(juce::Justification::centred);
@@ -47,12 +47,18 @@ public:
         auto area = getLocalBounds();
 
         // Calculate meter dimensions for single input meter
-        const int meterHeight = area.getHeight() - 40; // Space for labels (top and bottom)
+        const int meterHeight = area.getHeight() - 60; // Increased space for labels and padding
         const int labelHeight = 20;
+        const int padding = 20; // Add padding between meter and dB label
 
         // Input section (full width)
         inputLabel.setBounds(area.removeFromTop(labelHeight));
         inputMeterBounds = area.removeFromTop(meterHeight);
+        
+        // Add padding space
+        area.removeFromTop(padding);
+        
+        // Position dB label with more space below the meter
         inputDbLabel.setBounds(area.removeFromTop(labelHeight));
     }
 
@@ -87,7 +93,7 @@ private:
             inputLevel = averagedInputLevel;
 
             // Update dB label with smoothed value
-            auto inText = (inputLevel <= minDisplay) ? juce::String("-∞ dB") : juce::String(juce::Decibels::gainToDecibels(inputLevel), 1) + " dB";
+            auto inText = (inputLevel <= minDisplay) ? juce::String("-inf dB") : juce::String(juce::Decibels::gainToDecibels(inputLevel), 1) + " dB";
             inputDbLabel.setText(inText, juce::dontSendNotification);
 
             // Trigger repaint for meter bar

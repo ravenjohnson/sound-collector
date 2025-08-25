@@ -14,6 +14,39 @@
 #include <juce_audio_formats/juce_audio_formats.h>
 
 //==============================================================================
+// Background thread for saving operations
+class SaveThread : public juce::Thread
+{
+public:
+    SaveThread(SoundCollectorAudioProcessor& processor) 
+        : Thread("SoundCollector Save Thread"), owner(processor) {}
+
+    void run() override
+    {
+        while (!threadShouldExit())
+        {
+            // Wait for save request
+            if (owner.saveRequestEvent.wait(100)) // 100ms timeout
+            {
+                // Check if we should exit
+                if (owner.saveThreadShouldExit.load())
+                    break;
+                    
+                // Execute the pending save operation
+                if (owner.pendingSaveOperation)
+                {
+                    owner.pendingSaveOperation();
+                    owner.pendingSaveOperation = nullptr;
+                }
+            }
+        }
+    }
+
+private:
+    SoundCollectorAudioProcessor& owner;
+};
+
+//==============================================================================
 // Timer class for autosave functionality
 class AutoSaveTimer : public juce::Timer
 {
@@ -32,7 +65,12 @@ public:
         if (owner.isAutoSaveEnabled() && owner.hasEnoughAudioToSave())
         {
             DBG("Triggering autosave!");
-            owner.saveLastRecording(true); // Pass true for auto-save
+            // Use a longer delay to ensure audio processing is stable
+            juce::Timer::callAfterDelay(50, [this]() {
+                if (owner.isAutoSaveEnabled() && owner.hasEnoughAudioToSave()) {
+                    owner.saveLastRecording(true); // Pass true for auto-save
+                }
+            });
         }
         else
         {
@@ -57,7 +95,8 @@ SoundCollectorAudioProcessor::SoundCollectorAudioProcessor()
                        ),
 #endif
        apvts(*this, nullptr, "PARAMS", juce::AudioProcessorValueTreeState::ParameterLayout{}),
-       formatManager(), thumbnailCache(5), autoSaveTimer(std::make_unique<AutoSaveTimer>(*this))
+       formatManager(), thumbnailCache(5), autoSaveTimer(std::make_unique<AutoSaveTimer>(*this)),
+       saveThread(std::make_unique<SaveThread>(*this))
 {
     formatManager.registerBasicFormats();
     circularBuffer.setSize(2, maxBufferSamples); // 10 seconds stereo
@@ -72,6 +111,10 @@ SoundCollectorAudioProcessor::SoundCollectorAudioProcessor()
     averageInputLevel.store(-60.0f); // Start with silence
     activityWindowSamples.store(0);
 
+    // Start the save thread
+    if (saveThread)
+        saveThread->startThread();
+
     DBG("SoundCollector plugin initialized - threshold: " + juce::String(threshold.load()) + "dB");
 }
 
@@ -79,6 +122,14 @@ SoundCollectorAudioProcessor::~SoundCollectorAudioProcessor()
 {
     if (autoSaveTimer)
         autoSaveTimer->stopTimer();
+    
+    // Stop the save thread
+    if (saveThread)
+    {
+        saveThreadShouldExit = true;
+        saveRequestEvent.signal();
+        saveThread->stopThread(1000); // Wait up to 1 second
+    }
 }
 
 //==============================================================================
@@ -187,6 +238,18 @@ void SoundCollectorAudioProcessor::processBlock (juce::AudioBuffer<float>& buffe
         }
     }
 
+    // Check if we should bypass audio processing during save operations
+    if (bypassAudioProcessing.load())
+    {
+        // Simple pass-through without any processing or recording
+        for (int channel = 0; channel < totalNumInputChannels; ++channel)
+        {
+            buffer.copyFrom(channel, 0, buffer, channel, 0, buffer.getNumSamples());
+        }
+        outputLevel = inputLevel;
+        return;
+    }
+
     // Update input level meter
     if (totalNumInputChannels > 0)
     {
@@ -275,21 +338,10 @@ void SoundCollectorAudioProcessor::processBlock (juce::AudioBuffer<float>& buffe
 
     // Check if we have enough audio for autosave
     bool hasEnough = (meaningfulAudioSamples.load() >= minAudioSamplesForSave.load());
-    bool hadEnough = hasEnoughAudioForSave.load();
     hasEnoughAudioForSave.store(hasEnough);
 
-    // Trigger immediate autosave as soon as we have enough meaningful audio (first time only)
-    if (hasEnough && !hadEnough && isAutoSaveEnabled())
-    {
-        DBG("FIRST TIME ENOUGH AUDIO - TRIGGERING IMMEDIATE AUTOSAVE! Meaningful: " + juce::String(meaningfulAudioSamples.load()) + " Min required: " + juce::String(minAudioSamplesForSave.load()));
-
-        // Use a lambda to trigger autosave on the message thread to avoid threading issues
-        juce::MessageManager::callAsync([this]() {
-            if (isAutoSaveEnabled() && hasEnoughAudioToSave()) {
-                saveLastRecording(true); // true for auto-save
-            }
-        });
-    }
+    // Remove immediate autosave trigger from audio thread to prevent glitches
+    // Let the timer-based autosave handle this instead
 
     // Pass audio through to output
     for (int channel = 0; channel < totalNumInputChannels; ++channel)
@@ -391,20 +443,43 @@ void SoundCollectorAudioProcessor::saveLastRecording(bool isAutoSave)
 {
     DBG("saveLastRecording called - isAutoSave: " + juce::String(isAutoSave ? "YES" : "NO"));
 
-    // Get prefix from session state, with fallback to callback for backward compatibility
+    // Prevent multiple simultaneous save operations to avoid audio glitches
+    if (saveOperationInProgress.load())
+    {
+        DBG("Save operation already in progress - skipping to prevent audio glitch");
+        return;
+    }
+
+    // Enable bypass mode to prevent audio glitches during save
+    bypassAudioProcessing.store(true);
+    DBG("Bypass mode enabled for save operation");
+
+    // Create a lambda that captures the current buffer state and performs the save
+    auto saveOperation = [this, isAutoSave]() {
+        saveOperationInProgress.store(true);
+        performSaveOperation(isAutoSave);
+        saveOperationInProgress.store(false);
+        
+        // Re-enable audio processing after save completes
+        bypassAudioProcessing.store(false);
+        DBG("Bypass mode disabled after save operation");
+    };
+
+    // Schedule the save operation on the background thread
+    pendingSaveOperation = saveOperation;
+    saveRequestEvent.signal();
+}
+
+//==============================================================================
+void SoundCollectorAudioProcessor::performSaveOperation(bool isAutoSave)
+{
+    DBG("performSaveOperation called - isAutoSave: " + juce::String(isAutoSave ? "YES" : "NO"));
+
+    // Get prefix from session state with safe fallback
     juce::String prefix = sessionFilePrefix;
     if (prefix.isEmpty() || prefix == "Filename")
     {
-        // Fallback to callback if session prefix is not set
-        if (getFilePrefixCallback)
-        {
-            prefix = getFilePrefixCallback();
-        }
-        // Final fallback
-        if (prefix.isEmpty() || prefix == "Filename")
-        {
-            prefix = isAutoSave ? "SoundCollector" : "SoundCollector";
-        }
+        prefix = "SoundCollector";
     }
 
     juce::String timestamp = juce::Time::getCurrentTime().toString(true, true);
@@ -422,30 +497,60 @@ void SoundCollectorAudioProcessor::saveLastRecording(bool isAutoSave)
     juce::AudioBuffer<float> tempBuffer(2, maxBufferSamples);
     tempBuffer.clear();
 
-    const juce::ScopedLock lock(recordingLock);
-
-    if (bufferFull)
+    // Take a snapshot of the buffer state with minimal lock time
+    int samplesToWrite = 0;
+    bool wasBufferFull = false;
+    int snapshotWritePosition = 0;
+    
     {
-        // Copy the entire circular buffer
-        for (int sample = 0; sample < maxBufferSamples; ++sample)
+        const juce::ScopedLock lock(recordingLock);
+        
+        wasBufferFull = bufferFull;
+        snapshotWritePosition = bufferWritePosition;
+        
+        if (wasBufferFull)
         {
-            int readPos = (bufferWritePosition + sample) % maxBufferSamples;
-            for (int channel = 0; channel < 2; ++channel)
+            samplesToWrite = maxBufferSamples;
+        }
+        else
+        {
+            samplesToWrite = snapshotWritePosition;
+        }
+    }
+
+    // Copy the audio data with minimal lock time - use tryEnter to avoid blocking
+    if (recordingLock.tryEnter())
+    {
+        if (wasBufferFull)
+        {
+            // Copy the entire circular buffer
+            for (int sample = 0; sample < maxBufferSamples; ++sample)
             {
-                tempBuffer.setSample(channel, sample, circularBuffer.getSample(channel, readPos));
+                int readPos = (snapshotWritePosition + sample) % maxBufferSamples;
+                for (int channel = 0; channel < 2; ++channel)
+                {
+                    tempBuffer.setSample(channel, sample, circularBuffer.getSample(channel, readPos));
+                }
             }
         }
+        else
+        {
+            // Copy only the recorded portion
+            for (int sample = 0; sample < samplesToWrite; ++sample)
+            {
+                for (int channel = 0; channel < 2; ++channel)
+                {
+                    tempBuffer.setSample(channel, sample, circularBuffer.getSample(channel, sample));
+                }
+            }
+        }
+        recordingLock.exit();
     }
     else
     {
-        // Copy only the recorded portion
-        for (int sample = 0; sample < bufferWritePosition; ++sample)
-        {
-            for (int channel = 0; channel < 2; ++channel)
-            {
-                tempBuffer.setSample(channel, sample, circularBuffer.getSample(channel, sample));
-            }
-        }
+        // If we can't get the lock, skip this save to avoid audio glitches
+        DBG("Could not acquire recording lock for save - skipping to prevent audio glitch");
+        return;
     }
 
     // Create WAV writer
@@ -458,7 +563,6 @@ void SoundCollectorAudioProcessor::saveLastRecording(bool isAutoSave)
 
     if (writer != nullptr)
     {
-        int samplesToWrite = bufferFull ? maxBufferSamples : bufferWritePosition;
         if (samplesToWrite > 0)
         {
             writer->writeFromAudioSampleBuffer(tempBuffer, 0, samplesToWrite);
@@ -466,13 +570,17 @@ void SoundCollectorAudioProcessor::saveLastRecording(bool isAutoSave)
         }
     }
 
-    // Call the save callback if set
+    // Call the save callback if set (on message thread) - but defer it to avoid audio thread interference
     if (onSaveCallback)
     {
-        onSaveCallback(isAutoSave ? "Auto Save" : "Quick Save");
+        // Use a longer delay to ensure it doesn't interfere with audio processing
+        juce::Timer::callAfterDelay(50, [this, isAutoSave]() {
+            if (onSaveCallback)
+                onSaveCallback(isAutoSave ? "Auto Save" : "Quick Save");
+        });
     }
 
-        // For auto-save, subtract only the minimum required amount to allow immediate next save
+    // For auto-save, subtract only the minimum required amount to allow immediate next save
     if (isAutoSave)
     {
         // Subtract the minimum required samples (10 seconds) from the counter

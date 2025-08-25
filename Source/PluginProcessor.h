@@ -88,9 +88,7 @@ public:
     std::function<void(const juce::String&)> onSaveCallback;
     void setSaveCallback(std::function<void(const juce::String&)> callback) { onSaveCallback = callback; }
 
-    // File prefix callback for manual saves
-    std::function<juce::String()> getFilePrefixCallback;
-    void setFilePrefixCallback(std::function<juce::String()> callback) { getFilePrefixCallback = callback; }
+    // File prefix callback removed - using sessionFilePrefix for thread safety
 
     // Project name detection
     juce::String getProjectName() const;
@@ -114,6 +112,10 @@ public:
     // Test tone control
     void setTestToneActive(bool active) { testToneActive.store(active); }
     bool isTestToneActive() const { return testToneActive.load(); }
+
+    //==============================================================================
+    // Internal save operation (called from background thread)
+    void performSaveOperation(bool isAutoSave);
 
 private:
     //==============================================================================
@@ -180,11 +182,24 @@ private:
     // Autosave timer
     std::unique_ptr<juce::Timer> autoSaveTimer;
 
+public:
+    // Background thread for saving operations to avoid blocking audio thread
+    std::unique_ptr<juce::Thread> saveThread;
+    std::atomic<bool> saveThreadShouldExit{false};
+    std::atomic<bool> saveOperationInProgress{false}; // Prevent multiple simultaneous saves
+    std::atomic<bool> bypassAudioProcessing{false}; // Bypass audio processing during saves
+    juce::WaitableEvent saveRequestEvent;
+    std::function<void()> pendingSaveOperation;
+
+private:
+
     // Test tone for debugging
     float testPhase = 0.0f;
     float testFrequency = 440.0f; // A4 tone
     float testGain = 0.5f;
     std::atomic<bool> testToneActive{false};
+
+
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (SoundCollectorAudioProcessor)
 };

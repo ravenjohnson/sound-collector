@@ -67,7 +67,7 @@ public:
     void showSaveTimestamp(const juce::String& saveType);
 
     //==============================================================================
-    // 🆕 Get the file prefix from the input field
+    // Get the file prefix from the input field (UI thread only)
     juce::String getFilePrefix() const { return filePrefixInput.getText(); }
 
     //==============================================================================
@@ -80,6 +80,12 @@ public:
     // Button image loading
     void loadButtonImages();
 
+    // State image loading
+    void loadStateImages();
+
+    // State indicator drawing
+    void drawStateIndicator(juce::Graphics& g);
+
     // Component positioning
     void positionComponents();
 
@@ -87,6 +93,8 @@ private:
     // This reference is provided as a quick way for your editor to
     // access the processor object that created it.
     SoundCollectorAudioProcessor& audioProcessor;
+
+
 
     // File chooser
     std::unique_ptr<juce::FileChooser> directoryChooser;
@@ -105,6 +113,9 @@ private:
     juce::Label lastSaveLabel;
     juce::Label lastSaveTitleLabel;
 
+    // Input level label
+    juce::Label inputLevelLabel;
+
     // Instructional text component
     juce::Label instructionLabel;
 
@@ -122,12 +133,35 @@ private:
     juce::Image quickSaveButtonImage;
     juce::Image quickSaveButtonHoverImage;
 
+    // State indicator images
+    juce::Image stateWaitingImage;
+    juce::Image stateRecordingImage;
+
     // LookAndFeel instances as raw pointers (safer than static)
     juce::LookAndFeel* saveLocationLookAndFeel;
     juce::LookAndFeel* quickSaveLookAndFeel;
 
     // Timer for updating meters
     std::unique_ptr<MeterTimer> meterTimer;
+
+    // Pulse animation state
+    float pulseAlpha = 1.0f;
+    bool pulseDirection = false; // false = fading out, true = fading in
+
+    // Pulse timer class
+    class PulseTimer : public juce::Timer
+    {
+    public:
+        PulseTimer(SoundCollectorAudioProcessorEditor& editor);
+        void timerCallback() override;
+
+    private:
+        SoundCollectorAudioProcessorEditor& owner;
+        friend class SoundCollectorAudioProcessorEditor;
+    };
+
+    // Timer for pulsing animation
+    std::unique_ptr<PulseTimer> pulseTimer;
 
     // Friend class for timer access
     friend class MeterTimer;

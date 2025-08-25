@@ -2,12 +2,41 @@
 #include "PluginEditor.h"
 
 //==============================================================================
-// Version information - Update this for each release
-#define PLUGIN_VERSION "v5.1"
+// Version information - Updat./final_solution.she this for each release
+#define PLUGIN_VERSION "5.2.1"
 
 //==============================================================================
 // Timer class for updating meters
 MeterTimer::MeterTimer(SoundCollectorAudioProcessorEditor& editor) : owner(editor) {}
+
+//==============================================================================
+// PulseTimer implementation
+SoundCollectorAudioProcessorEditor::PulseTimer::PulseTimer(SoundCollectorAudioProcessorEditor& editor) : owner(editor) {}
+
+void SoundCollectorAudioProcessorEditor::PulseTimer::timerCallback()
+{
+    // Update pulse animation
+    const float pulseSpeed = 0.05f;
+    if (owner.pulseDirection)
+    {
+        owner.pulseAlpha += pulseSpeed;
+        if (owner.pulseAlpha >= 1.0f)
+        {
+            owner.pulseAlpha = 1.0f;
+            owner.pulseDirection = false;
+        }
+    }
+    else
+    {
+        owner.pulseAlpha -= pulseSpeed;
+        if (owner.pulseAlpha <= 0.3f)
+        {
+            owner.pulseAlpha = 0.3f;
+            owner.pulseDirection = true;
+        }
+    }
+    owner.repaint(); // Trigger repaint to update the animation
+}
 
 //==============================================================================
 SoundCollectorAudioProcessorEditor::SoundCollectorAudioProcessorEditor(SoundCollectorAudioProcessor& p)
@@ -22,6 +51,7 @@ SoundCollectorAudioProcessorEditor::SoundCollectorAudioProcessorEditor(SoundColl
     // Load images FIRST before creating any UI components
     loadBackgroundImage();
     loadButtonImages();
+    loadStateImages();
 
     // Set fixed size - plugin is not resizable
     setResizable(false, false);
@@ -251,6 +281,13 @@ SoundCollectorAudioProcessorEditor::SoundCollectorAudioProcessorEditor(SoundColl
     lastSaveLabel.setColour(juce::Label::textColourId, juce::Colours::grey);
     addAndMakeVisible(lastSaveLabel);
 
+    // Input level label
+    inputLevelLabel.setText("Input\nLevel", juce::dontSendNotification);
+    inputLevelLabel.setJustificationType(juce::Justification::centred);
+    inputLevelLabel.setFont(juce::Font(juce::FontOptions().withHeight(12.0f)).boldened());
+    inputLevelLabel.setColour(juce::Label::textColourId, juce::Colours::white);
+    addAndMakeVisible(inputLevelLabel);
+
     // Footer components
     bufferLabel.setJustificationType(juce::Justification::left);
     bufferLabel.setFont(juce::FontOptions(14.0f));
@@ -297,6 +334,10 @@ SoundCollectorAudioProcessorEditor::SoundCollectorAudioProcessorEditor(SoundColl
     meterTimer = std::make_unique<MeterTimer>(*this);
     meterTimer->startTimerHz(30);
 
+    // Pulse timer for state indicator animation
+    pulseTimer = std::make_unique<PulseTimer>(*this);
+    pulseTimer->startTimerHz(60); // 60 FPS for smooth animation
+
     // Save callback
     audioProcessor.setSaveCallback([this](const juce::String& saveType) {
         showSaveTimestamp(saveType);
@@ -306,10 +347,7 @@ SoundCollectorAudioProcessorEditor::SoundCollectorAudioProcessorEditor(SoundColl
         }
     });
 
-    // File prefix callback for manual saves
-    audioProcessor.setFilePrefixCallback([this]() {
-        return getFilePrefix();
-    });
+    // File prefix callback removed - using sessionFilePrefix instead for thread safety
 
     // State restoration callback
     audioProcessor.setStateRestoredCallback([this]() {
@@ -416,6 +454,120 @@ void SoundCollectorAudioProcessorEditor::loadButtonImages()
 }
 
 //==============================================================================
+void SoundCollectorAudioProcessorEditor::loadStateImages()
+{
+    // Load state indicator images from BinaryData
+    DBG("Attempting to load state images from BinaryData...");
+    
+    // Load waiting state image
+    DBG("Loading waiting state image...");
+    stateWaitingImage = juce::ImageFileFormat::loadFrom(BinaryData::statewaiting_png, BinaryData::statewaiting_pngSize);
+    
+    if (stateWaitingImage.isValid())
+    {
+        DBG("Waiting state image loaded successfully from BinaryData - Size: " + 
+            juce::String(stateWaitingImage.getWidth()) + "x" + juce::String(stateWaitingImage.getHeight()));
+    }
+    else
+    {
+        DBG("Failed to load waiting state image from BinaryData");
+    }
+    
+    // Load recording state image
+    DBG("Loading recording state image...");
+    stateRecordingImage = juce::ImageFileFormat::loadFrom(BinaryData::staterecording_png, BinaryData::staterecording_pngSize);
+    
+    if (stateRecordingImage.isValid())
+    {
+        DBG("Recording state image loaded successfully from BinaryData - Size: " + 
+            juce::String(stateRecordingImage.getWidth()) + "x" + juce::String(stateRecordingImage.getHeight()));
+    }
+    else
+    {
+        DBG("Failed to load recording state image from BinaryData");
+    }
+}
+
+//==============================================================================
+void SoundCollectorAudioProcessorEditor::drawStateIndicator(juce::Graphics& g)
+{
+    // Determine which state image to show based on current processor state
+    juce::Image* stateImage = nullptr;
+    
+    if (audioProcessor.isTestToneActive())
+    {
+        // Test tone is active - show recording state
+        if (stateRecordingImage.isValid())
+        {
+            stateImage = &stateRecordingImage;
+        }
+    }
+    else
+    {
+        // Normal mode - check if recording or waiting
+        if (audioProcessor.isAutoSaveEnabled())
+        {
+            if (audioProcessor.isBufferPaused())
+            {
+                // Waiting for audio
+                if (stateWaitingImage.isValid())
+                {
+                    stateImage = &stateWaitingImage;
+                }
+            }
+            else
+            {
+                // Recording audio
+                if (stateRecordingImage.isValid())
+                {
+                    stateImage = &stateRecordingImage;
+                }
+            }
+        }
+        else
+        {
+            // Manual mode
+            if (audioProcessor.isBufferPaused())
+            {
+                // Buffer paused
+                if (stateWaitingImage.isValid())
+                {
+                    stateImage = &stateWaitingImage;
+                }
+            }
+            else
+            {
+                // Recording audio
+                if (stateRecordingImage.isValid())
+                {
+                    stateImage = &stateRecordingImage;
+                }
+            }
+        }
+    }
+    
+    // Draw the state indicator if we have a valid image
+    if (stateImage != nullptr)
+    {
+        // Position the indicator to the left of the status text
+        // Status text is at (32, 212, 200, 20), so indicator goes at (12, 212, 16, 16)
+        const int indicatorSize = 16;
+        const int indicatorX = 32;
+        const int indicatorY = 212;
+        
+        // Apply pulsing animation with alpha
+        g.setOpacity(pulseAlpha);
+        
+        // Draw the state image
+        g.drawImage(*stateImage, indicatorX, indicatorY, indicatorSize, indicatorSize, 
+                   0, 0, stateImage->getWidth(), stateImage->getHeight());
+        
+        // Reset opacity
+        g.setOpacity(1.0f);
+    }
+}
+
+//==============================================================================
 void SoundCollectorAudioProcessorEditor::paint(juce::Graphics& g)
 {
     // Draw background image if available, otherwise use solid color
@@ -449,6 +601,9 @@ void SoundCollectorAudioProcessorEditor::paint(juce::Graphics& g)
         // Fallback to default color background
         g.fillAll(getLookAndFeel().findColour(juce::ResizableWindow::backgroundColourId));
     }
+
+    // Draw state indicator with pulsing animation
+    drawStateIndicator(g);
 
     // Draw instruction text with explicit line wrapping
     g.setColour(juce::Colours::white.withAlpha(0.5f));
@@ -495,14 +650,18 @@ void SoundCollectorAudioProcessorEditor::positionComponents()
     recordButton.setBounds(16, 288, 112, 32);
     // Test tone button positioned to the right of Quick Save button
     testToneToggle.setBounds(133, 288, 100, 32);
-    recordingStatusLabel.setBounds(32, 212, 200, 20);
+
+    recordingStatusLabel.setBounds(46, 212, 196, 20); // Moved 4px to the right to make room for indicator
 
     // Position "Last saved:" text directly below "Waiting for audio" text
     lastSaveTitleLabel.setBounds(32, 232, 100, 20); // Fixed width for "Last saved:"
     lastSaveLabel.setBounds(100, 232, 150, 20); // Timestamp positioned to the right
 
     // Level meter - fixed position
-    levelMeterComponent.setBounds(350, 40, 100, 300);
+    levelMeterComponent.setBounds(393, 174, 40, 160);
+
+    // Input level label positioned at specific coordinates
+    inputLevelLabel.setBounds(380, 80, 60, 30); // Position at (380, 80) with 60px width, 30px height for 2 lines
 
     DBG("Components positioned successfully");
 }
@@ -629,3 +788,5 @@ void SoundCollectorAudioProcessorEditor::syncUIWithProcessorState()
     DBG("UI synced with processor state - Test tone: " + juce::String(audioProcessor.isTestToneActive() ? "ON" : "OFF") +
         " Prefix: " + sessionPrefix);
 }
+
+

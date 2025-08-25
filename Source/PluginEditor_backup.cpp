@@ -3,7 +3,7 @@
 
 //==============================================================================
 // Version information - Update this for each release
-#define PLUGIN_VERSION "v5.1"
+#define PLUGIN_VERSION "v5.2"
 
 //==============================================================================
 // Timer class for updating meters
