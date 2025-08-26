@@ -482,16 +482,40 @@ void SoundCollectorAudioProcessor::performSaveOperation(bool isAutoSave)
         prefix = "SoundCollector";
     }
 
-    juce::String timestamp = juce::Time::getCurrentTime().toString(true, true);
-    timestamp = timestamp.replaceCharacter(':', '-'); // File safe
-
-    juce::String filename = prefix + "_" + timestamp + ".wav";
-
     juce::File saveDir = getUserSaveDirectory();
     if (!saveDir.exists())
         saveDir = juce::File::getSpecialLocation(juce::File::userDesktopDirectory);
 
-    juce::File saveFile = saveDir.getChildFile(filename);
+    juce::File saveFile;
+    juce::String filename;
+
+    if (isAutoSave)
+    {
+        // Autosave: Use daily rolling filename (YYYY-MM-DD format)
+        juce::Time currentTime = juce::Time::getCurrentTime();
+        juce::String dateString = formatDateForFilename(currentTime);
+        filename = prefix + "_" + dateString + ".wav";
+        saveFile = saveDir.getChildFile(filename);
+        
+        DBG("=== AUTOSAVE DEBUG ===");
+        DBG("Prefix: " + prefix);
+        DBG("Current time: " + currentTime.toString(true, true, true, true));
+        DBG("Formatted date: " + dateString);
+        DBG("Final filename: " + filename);
+        DBG("Save directory: " + saveDir.getFullPathName());
+        DBG("Full path: " + saveFile.getFullPathName());
+        DBG("=====================");
+    }
+    else
+    {
+        // Manual save: Use timestamped filename (existing behavior)
+        juce::String timestamp = juce::Time::getCurrentTime().toString(true, true);
+        timestamp = timestamp.replaceCharacter(':', '-'); // File safe
+        filename = prefix + "_" + timestamp + ".wav";
+        saveFile = saveDir.getChildFile(filename);
+        
+        DBG("Manual save using timestamped filename: " + filename);
+    }
 
     // Create a temporary buffer with the recorded audio
     juce::AudioBuffer<float> tempBuffer(2, maxBufferSamples);
@@ -567,6 +591,19 @@ void SoundCollectorAudioProcessor::performSaveOperation(bool isAutoSave)
         {
             writer->writeFromAudioSampleBuffer(tempBuffer, 0, samplesToWrite);
             writer->flush();
+            
+            // Log whether we're overwriting or creating a new file
+            if (isAutoSave)
+            {
+                if (saveFile.existsAsFile())
+                {
+                    DBG("Autosave: Overwriting existing daily file: " + filename);
+                }
+                else
+                {
+                    DBG("Autosave: Creating new daily file: " + filename);
+                }
+            }
         }
     }
 
@@ -624,6 +661,25 @@ void SoundCollectorAudioProcessor::saveLastRecordingWithDuration(float duration)
 juce::String SoundCollectorAudioProcessor::getProjectName() const { return "SoundCollector"; }
 juce::File SoundCollectorAudioProcessor::getSaveDirectory() const { return getUserSaveDirectory(); }
 juce::File SoundCollectorAudioProcessor::getSessionDirectory() const { return juce::File::getCurrentWorkingDirectory(); }
+
+//==============================================================================
+// Helper method to format date consistently for filenames
+juce::String SoundCollectorAudioProcessor::formatDateForFilename(const juce::Time& time)
+{
+    // Format: YYYY-MM-DD (local time, not UTC)
+    // Use explicit formatting to ensure correct YYYY-MM-DD format
+    int year = time.getYear();
+    int month = time.getMonth() + 1; // JUCE months are 0-based
+    int day = time.getDayOfMonth();
+    
+    juce::String formattedDate = juce::String(year) + "-" + 
+                                juce::String(month).paddedLeft('0', 2) + "-" + 
+                                juce::String(day).paddedLeft('0', 2);
+    
+    DBG("Date formatting: Year=" + juce::String(year) + " Month=" + juce::String(month) + " Day=" + juce::String(day) + " Result=" + formattedDate);
+    
+    return formattedDate;
+}
 
 //==============================================================================
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()

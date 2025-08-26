@@ -5,6 +5,7 @@ A modern JUCE-based audio plugin and standalone application for intelligent soun
 ## Features
 
 ### **Core Audio Processing**
+
 - **Smart Recording**: Threshold-triggered recording that automatically pauses during silence and resumes when audio returns
 - **Circular Buffer**: Maintains the last 10 seconds of recorded audio in memory for instant capture
 - **Automatic Saving**: Saves audio every 10 seconds when meaningful content is detected
@@ -12,18 +13,21 @@ A modern JUCE-based audio plugin and standalone application for intelligent soun
 - **Test Tone Generator**: Built-in 440Hz sine wave for testing and calibration
 
 ### **User Interface**
+
 - **Modern Grid Layout**: Clean, organized 480x400 interface with logical component grouping
 - **Real-time Level Metering**: Visual input level monitoring with dB readouts (-60dB to 0dB range)
 - **Status Display**: Color-coded recording status with detailed state information
 - **Session Persistence**: Custom file locations and prefixes are saved per DAW session
 
 ### **File Management**
+
 - **Flexible Save Locations**: Choose custom directories or use intelligent defaults
 - **Custom File Naming**: Set custom filename prefixes for organized project workflows
 - **Timestamped Files**: Automatic WAV file naming with date/time stamps
 - **High-Quality Export**: 24-bit WAV files maintaining original sample rate and channel configuration
 
 ### **Platform Support**
+
 - **Audio Unit (AU)**: Native macOS plugin format
 - **Standalone Application**: Direct audio processing without a DAW
 - **VST3 Support**: Cross-platform plugin compatibility
@@ -40,20 +44,22 @@ A modern JUCE-based audio plugin and standalone application for intelligent soun
 ### Option 1: Build from Source (Recommended)
 
 1. **Clone the repository**:
+
    ```bash
    git clone <repository-url>
    cd sound-collector
    ```
 
 2. **Build the project**:
+
    ```bash
    # Build all targets
    xcodebuild -project Builds/MacOSX/SoundCollector.xcodeproj -target "SoundCollector - All" -configuration Release
-   
+
    # Or build specific targets:
    # Standalone app only
    xcodebuild -project Builds/MacOSX/SoundCollector.xcodeproj -target "SoundCollector - Standalone Plugin" -configuration Release
-   
+
    # Audio Unit plugin only
    xcodebuild -project Builds/MacOSX/SoundCollector.xcodeproj -target "SoundCollector - AU" -configuration Release
    ```
@@ -98,27 +104,32 @@ SoundCollector features a clean, grid-based layout organized into logical sectio
 ### Standalone Application
 
 1. **Launch the app**:
+
    ```bash
    open Builds/MacOSX/build/Debug/SoundCollector.app
    ```
 
 2. **Setup your workflow**:
+
    - **Set File Location**: Click to choose where recordings are saved
    - **Custom Filename**: Enter a prefix for your recordings (e.g., "Guitar_Session")
    - **Monitor Input**: Watch the real-time level meter to ensure proper signal levels
 
 3. **Recording Operation**:
+
    - **Automatic Recording**: Plugin continuously monitors input and records when audio exceeds threshold
    - **Smart Pause/Resume**: Automatically pauses during silence, resumes when audio returns
    - **Buffer Management**: Always maintains the last 10 seconds of meaningful audio
    - **Status Display**: Color-coded status shows current recording state
 
 4. **Save Options**:
+
    - **Auto-Save**: Automatically saves every 10 seconds when buffer contains meaningful audio
    - **Quick Save**: Manual button to immediately save the current 10-second buffer
    - **Continuous Operation**: Recording never stops - perfect for live sessions
 
 5. **Test Tone Feature**:
+
    - **Enable Test Tone**: Checkbox generates 440Hz sine wave for testing
    - **Calibration**: Use to test levels, routing, and save functionality
    - **Bypass Input**: Test tone replaces input audio when enabled
@@ -133,6 +144,7 @@ SoundCollector features a clean, grid-based layout organized into logical sectio
 1. **Install the plugin** (see installation instructions above)
 
 2. **Load in your DAW**:
+
    - **Logic Pro X**: Insert > Audio Units > SoundCollector
    - **GarageBand**: Smart Controls > Plug-ins > Audio Units > SoundCollector
    - **Ableton Live**: Audio Effects > Audio Units > SoundCollector
@@ -148,17 +160,20 @@ SoundCollector features a clean, grid-based layout organized into logical sectio
 ### File Output Details
 
 **File Locations**:
+
 - **Custom Directory**: User-selected folder via "Set File Location" button
 - **Desktop Fallback**: Automatically uses Desktop if no custom location set
 - **Session-Specific**: Each DAW project remembers its own save location
 
 **File Naming**:
+
 - **Format**: `[Prefix]_[Date]_[Time].wav`
 - **Example**: `Guitar_Session_250119_143025.wav`
-- **Auto-Save**: Files prefixed with "AutoSave_" for automatic saves
-- **Manual Save**: Files prefixed with "QuickSave_" for manual saves
+- **Auto-Save**: Files prefixed with "AutoSave\_" for automatic saves
+- **Manual Save**: Files prefixed with "QuickSave\_" for manual saves
 
 **Audio Quality**:
+
 - **Bit Depth**: 24-bit for professional quality
 - **Sample Rate**: Matches input source (44.1kHz, 48kHz, 96kHz, etc.)
 - **Channels**: Mono or stereo based on input configuration
@@ -187,6 +202,7 @@ sound-collector/
 ### Current Version: v4.1
 
 **Recent Updates**:
+
 - Modern grid-based UI layout (480x400)
 - Test tone generator for calibration
 - Session-specific state persistence
@@ -198,9 +214,9 @@ sound-collector/
 
 1. **Edit source files** in the `Source/` directory
 2. **Update version number** in `Source/PluginEditor.cpp`:
-     ```cpp
-     #define PLUGIN_VERSION "v4.1"  // Increment for releases
-     ```
+   ```cpp
+   #define PLUGIN_VERSION "v4.1"  // Increment for releases
+   ```
 3. **Build and test**:
    ```bash
    ./build_and_run.sh
@@ -223,29 +239,34 @@ sound-collector/
 
 ### Common Issues
 
-1. **Build fails**: 
+1. **Build fails**:
+
    - Ensure Xcode is up to date (latest version recommended)
    - Check that JUCE framework files are properly included
    - Clean build folder and retry: `xcodebuild clean`
 
-2. **Plugin not found in DAW**: 
+2. **Plugin not found in DAW**:
+
    - Verify installation path: `/Library/Audio/Plug-Ins/Components/`
    - Restart your DAW completely after installation
    - Check DAW's plugin scan/refresh settings
    - Ensure plugin is compatible with your DAW version
 
-3. **Audio permissions**: 
+3. **Audio permissions**:
+
    - Grant microphone access in System Preferences > Security & Privacy > Privacy > Microphone
    - Restart application after granting permissions
    - Check audio device settings in standalone app
 
 4. **No audio recording**:
+
    - Verify input levels using the real-time meter
    - Check threshold setting (default: -60dB)
    - Enable test tone to verify signal path
    - Confirm audio device selection in system preferences
 
 5. **Autosave not working**:
+
    - Ensure "Set File Location" has been configured
    - Check that target directory has write permissions
    - Verify meaningful audio is above threshold for 10+ seconds
@@ -259,6 +280,7 @@ sound-collector/
 ### Debug Builds
 
 For development and debugging:
+
 ```bash
 xcodebuild -project Builds/MacOSX/SoundCollector.xcodeproj -target "SoundCollector - Standalone Plugin" -configuration Debug
 ```
@@ -266,6 +288,7 @@ xcodebuild -project Builds/MacOSX/SoundCollector.xcodeproj -target "SoundCollect
 ### Clean Builds
 
 To clean and rebuild:
+
 ```bash
 xcodebuild -project Builds/MacOSX/SoundCollector.xcodeproj clean
 xcodebuild -project Builds/MacOSX/SoundCollector.xcodeproj -target "SoundCollector - Standalone Plugin" -configuration Debug
@@ -286,6 +309,7 @@ xcodebuild -project Builds/MacOSX/SoundCollector.xcodeproj -target "SoundCollect
 ## Support
 
 For issues and questions:
+
 - Check the troubleshooting section above
 - Open an issue on the repository
 - Contact the development team
@@ -304,3 +328,13 @@ For issues and questions:
 - **Latency**: Minimal (real-time processing)
 
 **Note**: This is a JUCE-based project. For more information about JUCE, visit [juce.com](https://juce.com).
+
+**Future features**:
+
+1. Buffer to more seconds
+2. Autosave first at 5s. then 10.s and 15.s up to 20s?
+3. If 20s buffer is filled up, add 5 seconds to the beginning, autosave and start the cycle again
+
+**TODO**
+
+1. Why is autosave file so large, is it because it is overwriting?
