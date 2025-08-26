@@ -78,7 +78,7 @@ public:
     bool isAutoSaveEnabled() const { return autoSaveEnabled; }
     void setAutoSaveDuration(float seconds) { autoSaveDuration = seconds; }
     float getAutoSaveDuration() const { return autoSaveDuration; }
-    
+
     // Autosave mode control (optional feature)
     enum class AutoSaveMode
     {
@@ -125,7 +125,7 @@ public:
     //==============================================================================
     // Internal save operation (called from background thread)
     void performSaveOperation(bool isAutoSave);
-    
+
     //==============================================================================
     // Helper method for date formatting
     juce::String formatDateForFilename(const juce::Time& time);
@@ -159,7 +159,7 @@ private:
     std::atomic<bool> audioDetected{false};
     std::atomic<int> thresholdHoldSamples{0}; // Hold time in samples
     std::atomic<int> holdCountdownSamples{0}; // Current hold countdown
-    
+
     // Autosave mode setting
     AutoSaveMode autoSaveMode{AutoSaveMode::dailyOverwrite}; // Default to daily overwrite
 
@@ -167,6 +167,8 @@ private:
     std::atomic<int> meaningfulAudioSamples{0}; // Total samples of meaningful audio recorded
     std::atomic<int> minAudioSamplesForSave{0}; // Minimum samples required before autosave
     std::atomic<bool> hasEnoughAudioForSave{false}; // Whether we have enough audio to save
+
+
 
     // Audio activity tracking for dynamic audio
     std::atomic<float> averageInputLevel{0.0f};

@@ -18,7 +18,7 @@
 class SaveThread : public juce::Thread
 {
 public:
-    SaveThread(SoundCollectorAudioProcessor& processor) 
+    SaveThread(SoundCollectorAudioProcessor& processor)
         : Thread("SoundCollector Save Thread"), owner(processor) {}
 
     void run() override
@@ -31,7 +31,7 @@ public:
                 // Check if we should exit
                 if (owner.saveThreadShouldExit.load())
                     break;
-                    
+
                 // Execute the pending save operation
                 if (owner.pendingSaveOperation)
                 {
@@ -122,7 +122,7 @@ SoundCollectorAudioProcessor::~SoundCollectorAudioProcessor()
 {
     if (autoSaveTimer)
         autoSaveTimer->stopTimer();
-    
+
     // Stop the save thread
     if (saveThread)
     {
@@ -459,7 +459,7 @@ void SoundCollectorAudioProcessor::saveLastRecording(bool isAutoSave)
         saveOperationInProgress.store(true);
         performSaveOperation(isAutoSave);
         saveOperationInProgress.store(false);
-        
+
         // Re-enable audio processing after save completes
         bypassAudioProcessing.store(false);
         DBG("Bypass mode disabled after save operation");
@@ -496,7 +496,7 @@ void SoundCollectorAudioProcessor::performSaveOperation(bool isAutoSave)
         juce::String dateString = formatDateForFilename(currentTime);
         filename = prefix + "_" + dateString + ".wav";
         saveFile = saveDir.getChildFile(filename);
-        
+
         DBG("=== AUTOSAVE DEBUG ===");
         DBG("Prefix: " + prefix);
         DBG("Current time: " + currentTime.toString(true, true, true, true));
@@ -513,7 +513,7 @@ void SoundCollectorAudioProcessor::performSaveOperation(bool isAutoSave)
         timestamp = timestamp.replaceCharacter(':', '-'); // File safe
         filename = prefix + "_" + timestamp + ".wav";
         saveFile = saveDir.getChildFile(filename);
-        
+
         DBG("Manual save using timestamped filename: " + filename);
     }
 
@@ -525,20 +525,41 @@ void SoundCollectorAudioProcessor::performSaveOperation(bool isAutoSave)
     int samplesToWrite = 0;
     bool wasBufferFull = false;
     int snapshotWritePosition = 0;
-    
+    int startPosition = 0;
+
     {
         const juce::ScopedLock lock(recordingLock);
-        
+
         wasBufferFull = bufferFull;
         snapshotWritePosition = bufferWritePosition;
-        
-        if (wasBufferFull)
+
+                if (isAutoSave)
         {
-            samplesToWrite = maxBufferSamples;
+            // For autosave, always save the most recent 10 seconds (entire buffer)
+            if (wasBufferFull)
+            {
+                samplesToWrite = maxBufferSamples;
+                startPosition = snapshotWritePosition; // Start from current position for circular buffer
+            }
+            else
+            {
+                samplesToWrite = snapshotWritePosition;
+                startPosition = 0;
+            }
         }
         else
         {
-            samplesToWrite = snapshotWritePosition;
+            // For manual save, save the entire buffer
+            if (wasBufferFull)
+            {
+                samplesToWrite = maxBufferSamples;
+                startPosition = snapshotWritePosition; // Start from current position for circular buffer
+            }
+            else
+            {
+                samplesToWrite = snapshotWritePosition;
+                startPosition = 0;
+            }
         }
     }
 
@@ -547,7 +568,7 @@ void SoundCollectorAudioProcessor::performSaveOperation(bool isAutoSave)
     {
         if (wasBufferFull)
         {
-            // Copy the entire circular buffer
+            // For full buffer, copy the entire circular buffer correctly
             for (int sample = 0; sample < maxBufferSamples; ++sample)
             {
                 int readPos = (snapshotWritePosition + sample) % maxBufferSamples;
@@ -559,12 +580,13 @@ void SoundCollectorAudioProcessor::performSaveOperation(bool isAutoSave)
         }
         else
         {
-            // Copy only the recorded portion
+            // Copy the audio from startPosition to startPosition + samplesToWrite
             for (int sample = 0; sample < samplesToWrite; ++sample)
             {
+                int readPos = (startPosition + sample) % maxBufferSamples;
                 for (int channel = 0; channel < 2; ++channel)
                 {
-                    tempBuffer.setSample(channel, sample, circularBuffer.getSample(channel, sample));
+                    tempBuffer.setSample(channel, sample, circularBuffer.getSample(channel, readPos));
                 }
             }
         }
@@ -591,7 +613,7 @@ void SoundCollectorAudioProcessor::performSaveOperation(bool isAutoSave)
         {
             writer->writeFromAudioSampleBuffer(tempBuffer, 0, samplesToWrite);
             writer->flush();
-            
+
             // Log whether we're overwriting or creating a new file
             if (isAutoSave)
             {
@@ -607,30 +629,20 @@ void SoundCollectorAudioProcessor::performSaveOperation(bool isAutoSave)
         }
     }
 
-    // Call the save callback if set (on message thread) - but defer it to avoid audio thread interference
+    // Call the save callback if set (on message thread)
     if (onSaveCallback)
     {
-        // Use a longer delay to ensure it doesn't interfere with audio processing
-        juce::Timer::callAfterDelay(50, [this, isAutoSave]() {
-            if (onSaveCallback)
-                onSaveCallback(isAutoSave ? "Auto Save" : "Quick Save");
-        });
+        onSaveCallback(isAutoSave ? "Auto Save" : "Quick Save");
     }
 
-    // For auto-save, subtract only the minimum required amount to allow immediate next save
+        // For auto-save, reset the meaningful audio counter
     if (isAutoSave)
     {
-        // Subtract the minimum required samples (10 seconds) from the counter
-        // This allows the next save to happen immediately if we have continuous audio
-        int minRequired = minAudioSamplesForSave.load();
-        int currentMeaningful = meaningfulAudioSamples.load();
-        int remainingMeaningful = juce::jmax(0, currentMeaningful - minRequired);
-        meaningfulAudioSamples.store(remainingMeaningful);
+        // Reset the meaningful audio counter since we've saved all the audio
+        meaningfulAudioSamples.store(0);
+        hasEnoughAudioForSave.store(false);
 
-        // Update the "has enough" flag
-        hasEnoughAudioForSave.store(remainingMeaningful >= minRequired);
-
-        DBG("Auto-save completed - subtracted " + juce::String(minRequired) + " samples, remaining meaningful: " + juce::String(remainingMeaningful));
+        DBG("Auto-save completed - saved " + juce::String(samplesToWrite) + " samples");
     }
 }
 
@@ -671,13 +683,13 @@ juce::String SoundCollectorAudioProcessor::formatDateForFilename(const juce::Tim
     int year = time.getYear();
     int month = time.getMonth() + 1; // JUCE months are 0-based
     int day = time.getDayOfMonth();
-    
-    juce::String formattedDate = juce::String(year) + "-" + 
-                                juce::String(month).paddedLeft('0', 2) + "-" + 
+
+    juce::String formattedDate = juce::String(year) + "-" +
+                                juce::String(month).paddedLeft('0', 2) + "-" +
                                 juce::String(day).paddedLeft('0', 2);
-    
+
     DBG("Date formatting: Year=" + juce::String(year) + " Month=" + juce::String(month) + " Day=" + juce::String(day) + " Result=" + formattedDate);
-    
+
     return formattedDate;
 }
 

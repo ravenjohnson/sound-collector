@@ -307,7 +307,7 @@ SoundCollectorAudioProcessorEditor::SoundCollectorAudioProcessorEditor(SoundColl
     DBG("saveLocationButtonHoverImage valid: " + juce::String(saveLocationButtonHoverImage.isValid() ? "true" : "false"));
     DBG("quickSaveButtonImage valid: " + juce::String(quickSaveButtonImage.isValid() ? "true" : "false"));
     DBG("quickSaveButtonHoverImage valid: " + juce::String(quickSaveButtonHoverImage.isValid() ? "true" : "false"));
-    
+
     if (saveLocationButtonImage.isValid() && saveLocationButtonHoverImage.isValid())
     {
         saveLocationLookAndFeel = new SaveLocationButtonLookAndFeel(saveLocationButtonImage, saveLocationButtonHoverImage);
@@ -340,11 +340,17 @@ SoundCollectorAudioProcessorEditor::SoundCollectorAudioProcessorEditor(SoundColl
 
     // Save callback
     audioProcessor.setSaveCallback([this](const juce::String& saveType) {
-        showSaveTimestamp(saveType);
-        if (saveType == "Auto Save")
-        {
-            updateAutoSaveTimestamp();
-        }
+        // Ensure we're on the message thread and the editor is still valid
+        juce::MessageManager::callAsync([this, saveType]() {
+            if (this != nullptr) // Check if editor is still valid
+            {
+                showSaveTimestamp(saveType);
+                if (saveType == "Auto Save")
+                {
+                    updateAutoSaveTimestamp();
+                }
+            }
+        });
     });
 
     // File prefix callback removed - using sessionFilePrefix instead for thread safety
@@ -390,12 +396,12 @@ void SoundCollectorAudioProcessorEditor::loadBackgroundImage()
     DBG("Attempting to load background image from BinaryData...");
     DBG("BinaryData::background_png pointer: " + juce::String::toHexString((intptr_t)BinaryData::background_png));
     DBG("BinaryData::background_pngSize: " + juce::String(BinaryData::background_pngSize));
-    
+
     backgroundImage = juce::ImageFileFormat::loadFrom(BinaryData::background_png, BinaryData::background_pngSize);
-    
+
     if (backgroundImage.isValid())
     {
-        DBG("Background image loaded successfully from BinaryData - Size: " + 
+        DBG("Background image loaded successfully from BinaryData - Size: " +
             juce::String(backgroundImage.getWidth()) + "x" + juce::String(backgroundImage.getHeight()));
     }
     else
@@ -409,12 +415,12 @@ void SoundCollectorAudioProcessorEditor::loadButtonImages()
 {
     // Load button images from BinaryData (works for both standalone and AU plugin)
     DBG("Attempting to load button images from BinaryData...");
-    
+
     // Load Save Location button images
     DBG("Loading Save Location button images...");
     saveLocationButtonImage = juce::ImageFileFormat::loadFrom(BinaryData::buttonlocation_png, BinaryData::buttonlocation_pngSize);
     saveLocationButtonHoverImage = juce::ImageFileFormat::loadFrom(BinaryData::buttonlocationhover_png, BinaryData::buttonlocationhover_pngSize);
-    
+
     if (saveLocationButtonImage.isValid() && saveLocationButtonHoverImage.isValid())
     {
         DBG("Save Location button images loaded successfully from BinaryData");
@@ -425,12 +431,12 @@ void SoundCollectorAudioProcessorEditor::loadButtonImages()
         if (!saveLocationButtonImage.isValid()) DBG("  - saveLocationButtonImage is invalid");
         if (!saveLocationButtonHoverImage.isValid()) DBG("  - saveLocationButtonHoverImage is invalid");
     }
-    
+
     // Load Quick Save button images
     DBG("Loading Quick Save button images...");
     quickSaveButtonImage = juce::ImageFileFormat::loadFrom(BinaryData::buttonsave_png, BinaryData::buttonsave_pngSize);
     quickSaveButtonHoverImage = juce::ImageFileFormat::loadFrom(BinaryData::buttonsavehover_png, BinaryData::buttonsavehover_pngSize);
-    
+
     if (quickSaveButtonImage.isValid() && quickSaveButtonHoverImage.isValid())
     {
         DBG("Quick Save button images loaded successfully from BinaryData");
@@ -458,28 +464,28 @@ void SoundCollectorAudioProcessorEditor::loadStateImages()
 {
     // Load state indicator images from BinaryData
     DBG("Attempting to load state images from BinaryData...");
-    
+
     // Load waiting state image
     DBG("Loading waiting state image...");
     stateWaitingImage = juce::ImageFileFormat::loadFrom(BinaryData::statewaiting_png, BinaryData::statewaiting_pngSize);
-    
+
     if (stateWaitingImage.isValid())
     {
-        DBG("Waiting state image loaded successfully from BinaryData - Size: " + 
+        DBG("Waiting state image loaded successfully from BinaryData - Size: " +
             juce::String(stateWaitingImage.getWidth()) + "x" + juce::String(stateWaitingImage.getHeight()));
     }
     else
     {
         DBG("Failed to load waiting state image from BinaryData");
     }
-    
+
     // Load recording state image
     DBG("Loading recording state image...");
     stateRecordingImage = juce::ImageFileFormat::loadFrom(BinaryData::staterecording_png, BinaryData::staterecording_pngSize);
-    
+
     if (stateRecordingImage.isValid())
     {
-        DBG("Recording state image loaded successfully from BinaryData - Size: " + 
+        DBG("Recording state image loaded successfully from BinaryData - Size: " +
             juce::String(stateRecordingImage.getWidth()) + "x" + juce::String(stateRecordingImage.getHeight()));
     }
     else
@@ -493,7 +499,7 @@ void SoundCollectorAudioProcessorEditor::drawStateIndicator(juce::Graphics& g)
 {
     // Determine which state image to show based on current processor state
     juce::Image* stateImage = nullptr;
-    
+
     if (audioProcessor.isTestToneActive())
     {
         // Test tone is active - show recording state
@@ -545,7 +551,7 @@ void SoundCollectorAudioProcessorEditor::drawStateIndicator(juce::Graphics& g)
             }
         }
     }
-    
+
     // Draw the state indicator if we have a valid image
     if (stateImage != nullptr)
     {
@@ -554,14 +560,14 @@ void SoundCollectorAudioProcessorEditor::drawStateIndicator(juce::Graphics& g)
         const int indicatorSize = 16;
         const int indicatorX = 32;
         const int indicatorY = 212;
-        
+
         // Apply pulsing animation with alpha
         g.setOpacity(pulseAlpha);
-        
+
         // Draw the state image
-        g.drawImage(*stateImage, indicatorX, indicatorY, indicatorSize, indicatorSize, 
+        g.drawImage(*stateImage, indicatorX, indicatorY, indicatorSize, indicatorSize,
                    0, 0, stateImage->getWidth(), stateImage->getHeight());
-        
+
         // Reset opacity
         g.setOpacity(1.0f);
     }
@@ -744,6 +750,13 @@ void SoundCollectorAudioProcessorEditor::buttonClicked(juce::Button* button)
 
 void SoundCollectorAudioProcessorEditor::showSaveTimestamp(const juce::String& saveType)
 {
+    // Safety check to ensure we're on the message thread and the component is still valid
+    if (!juce::MessageManager::getInstance()->isThisTheMessageThread())
+    {
+        DBG("showSaveTimestamp called from wrong thread - ignoring");
+        return;
+    }
+
     auto now = juce::Time::getCurrentTime();
     juce::String timestamp = now.toString(false, true, true, true);
     recordingStatusLabel.setText(saveType + " - " + timestamp, juce::dontSendNotification);
@@ -767,6 +780,13 @@ void SoundCollectorAudioProcessorEditor::mouseDown(const juce::MouseEvent& event
 // Update auto-save timestamp
 void SoundCollectorAudioProcessorEditor::updateAutoSaveTimestamp()
 {
+    // Safety check to ensure we're on the message thread
+    if (!juce::MessageManager::getInstance()->isThisTheMessageThread())
+    {
+        DBG("updateAutoSaveTimestamp called from wrong thread - ignoring");
+        return;
+    }
+
     auto now = juce::Time::getCurrentTime();
     juce::String timestamp = now.toString(false, true, true, true);
     lastSaveLabel.setText(timestamp, juce::dontSendNotification);
