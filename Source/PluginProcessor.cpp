@@ -62,12 +62,13 @@ public:
             + " MinRequired=" + juce::String(owner.getMinAudioSamplesForSave()));
 
         // Only autosave if enabled AND we have enough meaningful audio recorded
-        if (owner.isAutoSaveEnabled() && owner.hasEnoughAudioToSave())
+        // AND no save operation is currently in progress
+        if (owner.isAutoSaveEnabled() && owner.hasEnoughAudioToSave() && !owner.isSaveOperationInProgress())
         {
             DBG("Triggering autosave!");
             // Use a longer delay to ensure audio processing is stable
             juce::Timer::callAfterDelay(50, [this]() {
-                if (owner.isAutoSaveEnabled() && owner.hasEnoughAudioToSave()) {
+                if (owner.isAutoSaveEnabled() && owner.hasEnoughAudioToSave() && !owner.isSaveOperationInProgress()) {
                     owner.saveLastRecording(true); // Pass true for auto-save
                 }
             });
@@ -450,6 +451,13 @@ void SoundCollectorAudioProcessor::saveLastRecording(bool isAutoSave)
         return;
     }
 
+    // For autosave, also check if we have enough meaningful audio
+    if (isAutoSave && !hasEnoughAudioToSave())
+    {
+        DBG("Autosave requested but not enough meaningful audio - skipping");
+        return;
+    }
+
     // Enable bypass mode to prevent audio glitches during save
     bypassAudioProcessing.store(true);
     DBG("Bypass mode enabled for save operation");
@@ -497,6 +505,19 @@ void SoundCollectorAudioProcessor::performSaveOperation(bool isAutoSave)
         filename = prefix + "_" + dateString + ".wav";
         saveFile = saveDir.getChildFile(filename);
 
+        // For autosave, delete the existing file to ensure we start fresh
+        if (saveFile.existsAsFile())
+        {
+            if (saveFile.deleteFile())
+            {
+                DBG("Autosave: Deleted existing file: " + filename);
+            }
+            else
+            {
+                DBG("Autosave: Failed to delete existing file: " + filename);
+            }
+        }
+
         DBG("=== AUTOSAVE DEBUG ===");
         DBG("Prefix: " + prefix);
         DBG("Current time: " + currentTime.toString(true, true, true, true));
@@ -539,12 +560,18 @@ void SoundCollectorAudioProcessor::performSaveOperation(bool isAutoSave)
             if (wasBufferFull)
             {
                 samplesToWrite = maxBufferSamples;
-                startPosition = snapshotWritePosition; // Start from current position for circular buffer
+                // For full buffer, start from the oldest position (current write position)
+                // This gives us the most recent 10 seconds in chronological order
+                startPosition = snapshotWritePosition;
+                DBG("Autosave: Full buffer - saving " + juce::String(samplesToWrite) + 
+                    " samples starting from position " + juce::String(startPosition));
             }
             else
             {
                 samplesToWrite = snapshotWritePosition;
                 startPosition = 0;
+                DBG("Autosave: Partial buffer - saving " + juce::String(samplesToWrite) + 
+                    " samples starting from position " + juce::String(startPosition));
             }
         }
         else
@@ -569,14 +596,22 @@ void SoundCollectorAudioProcessor::performSaveOperation(bool isAutoSave)
         if (wasBufferFull)
         {
             // For full buffer, copy the entire circular buffer correctly
+            // Start from the oldest position and read forward to get chronological order
             for (int sample = 0; sample < maxBufferSamples; ++sample)
             {
+                // For a full circular buffer, the oldest sample is at the current write position
+                // We read forward from there to get the most recent 10 seconds in chronological order
+                // This ensures we get the latest audio content
                 int readPos = (snapshotWritePosition + sample) % maxBufferSamples;
                 for (int channel = 0; channel < 2; ++channel)
                 {
                     tempBuffer.setSample(channel, sample, circularBuffer.getSample(channel, readPos));
                 }
             }
+            
+            DBG("Full buffer save: WritePos=" + juce::String(snapshotWritePosition) + 
+                " Samples=" + juce::String(maxBufferSamples) + 
+                " Reading from oldest position for chronological order");
         }
         else
         {
@@ -635,14 +670,30 @@ void SoundCollectorAudioProcessor::performSaveOperation(bool isAutoSave)
         onSaveCallback(isAutoSave ? "Auto Save" : "Quick Save");
     }
 
-        // For auto-save, reset the meaningful audio counter
+        // For auto-save, reset the meaningful audio counter and clear the buffer
     if (isAutoSave)
     {
+        // Clear the circular buffer to prevent accumulation of audio
+        const juce::ScopedLock lock(recordingLock);
+        circularBuffer.clear();
+        bufferWritePosition = 0;
+        bufferFull = false;
+        
         // Reset the meaningful audio counter since we've saved all the audio
         meaningfulAudioSamples.store(0);
         hasEnoughAudioForSave.store(false);
 
         DBG("Auto-save completed - saved " + juce::String(samplesToWrite) + " samples");
+        DBG("Reset meaningful audio counter to 0 and cleared buffer");
+        DBG("Buffer cleared - next recording will start fresh");
+        
+        // Restart the autosave timer to ensure it continues working
+        if (autoSaveTimer)
+        {
+            autoSaveTimer->stopTimer();
+            autoSaveTimer->startTimer(static_cast<int>(autoSaveDuration.load() * 1000));
+            DBG("Restarted autosave timer for next cycle");
+        }
     }
 }
 

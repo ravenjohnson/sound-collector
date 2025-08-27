@@ -91,6 +91,7 @@ public:
     // Debug getters
     int getMeaningfulAudioSamples() const { return meaningfulAudioSamples.load(); }
     int getMinAudioSamplesForSave() const { return minAudioSamplesForSave.load(); }
+    bool isSaveOperationInProgress() const { return saveOperationInProgress.load(); }
 
     //==============================================================================
     // Editor notification callback

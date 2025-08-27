@@ -3,7 +3,7 @@
 
 //==============================================================================
 // Version information - Updat./final_solution.she this for each release
-#define PLUGIN_VERSION "5.2.1"
+#define PLUGIN_VERSION "5.2.4"
 
 //==============================================================================
 // Timer class for updating meters
