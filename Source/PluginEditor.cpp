@@ -159,7 +159,10 @@ SoundCollectorAudioProcessorEditor::SoundCollectorAudioProcessorEditor(SoundColl
             {
                 auto dir = fc.getResult();
                 if (dir != juce::File())
+                {
                     audioProcessor.setUserSaveDirectoryAndPersist(dir);
+                    updateSaveLocationButtonText(dir);
+                }
                 directoryChooser.reset();
             });
     };
@@ -793,6 +796,35 @@ void SoundCollectorAudioProcessorEditor::updateAutoSaveTimestamp()
 }
 
 //==============================================================================
+void SoundCollectorAudioProcessorEditor::updateSaveLocationButtonText(const juce::File& saveDir)
+{
+    if (saveDir.exists() && saveDir.isDirectory())
+    {
+        juce::String folderName = saveDir.getFileName();
+        if (folderName.isEmpty())
+        {
+            // If folder name is empty (e.g., root directory), use the full path
+            folderName = saveDir.getFullPathName();
+        }
+        
+        // Truncate if the text is too long for the button
+        const int maxLength = 15; // Adjust this value based on your button width
+        if (folderName.length() > maxLength)
+        {
+            folderName = folderName.substring(0, maxLength - 3) + "...";
+        }
+        
+        settingsButton.setButtonText(folderName);
+        DBG("Updated save location button text to: " + folderName);
+    }
+    else
+    {
+        settingsButton.setButtonText("Save Location");
+        DBG("Reset save location button text to default");
+    }
+}
+
+//==============================================================================
 void SoundCollectorAudioProcessorEditor::syncUIWithProcessorState()
 {
     // Sync test tone toggle with processor state
@@ -805,8 +837,19 @@ void SoundCollectorAudioProcessorEditor::syncUIWithProcessorState()
         filePrefixInput.setText(sessionPrefix, juce::dontSendNotification);
     }
 
+    // Sync save location button text
+    juce::File saveDir = audioProcessor.getUserSaveDirectory();
+    if (saveDir.exists() && saveDir.isDirectory())
+    {
+        updateSaveLocationButtonText(saveDir);
+    }
+    else
+    {
+        settingsButton.setButtonText("Save Location");
+    }
+
     DBG("UI synced with processor state - Test tone: " + juce::String(audioProcessor.isTestToneActive() ? "ON" : "OFF") +
-        " Prefix: " + sessionPrefix);
+        " Prefix: " + sessionPrefix + " Save dir: " + saveDir.getFullPathName());
 }
 
 

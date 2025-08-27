@@ -74,6 +74,10 @@ public:
     // Sync UI with processor state (for restored sessions)
     void syncUIWithProcessorState();
 
+    //==============================================================================
+    // Update save location button text
+    void updateSaveLocationButtonText(const juce::File& saveDir);
+
     // Background image loading
     void loadBackgroundImage();
 
