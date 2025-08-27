@@ -26,9 +26,10 @@ echo "✓ Plugin code signed"
 
 # Step 5: Install
 echo "Step 4: Installing plugin..."
-sudo rm -rf "/Users/hrafnthoroddsen/Library/Audio/Plug-Ins/Components/SoundCollector.component"
-sudo cp -R "Builds/MacOSX/build/Debug/SoundCollector.component" "/Users/hrafnthoroddsen/Library/Audio/Plug-Ins/Components/"
-sudo chown -R hrafnthoroddsen:staff "/Users/hrafnthoroddsen/Library/Audio/Plug-Ins/Components/SoundCollector.component"
+PLUGIN_DIR="$HOME/Library/Audio/Plug-Ins/Components"
+sudo rm -rf "$PLUGIN_DIR/SoundCollector.component"
+sudo cp -R "Builds/MacOSX/build/Debug/SoundCollector.component" "$PLUGIN_DIR/"
+sudo chown -R $(whoami):staff "$PLUGIN_DIR/SoundCollector.component"
 echo "✓ Plugin installed"
 
 # Step 6: Verify version
@@ -43,6 +44,6 @@ echo ""
 
 # Step 7: Open the installed plugin folder
 echo "Step 5: Opening plugin folder..."
-open "/Users/hrafnthoroddsen/Library/Audio/Plug-Ins/Components/"
+open "$PLUGIN_DIR"
 echo "✓ Plugin folder opened in Finder"
 echo ""
