@@ -341,27 +341,35 @@ SoundCollectorAudioProcessorEditor::SoundCollectorAudioProcessorEditor(SoundColl
     pulseTimer = std::make_unique<PulseTimer>(*this);
     pulseTimer->startTimerHz(60); // 60 FPS for smooth animation
 
-    // Save callback
-    audioProcessor.setSaveCallback([this](const juce::String& saveType) {
-        // Ensure we're on the message thread and the editor is still valid
-        juce::MessageManager::callAsync([this, saveType]() {
-            if (this != nullptr) // Check if editor is still valid
-            {
-                showSaveTimestamp(saveType);
-                if (saveType == "Auto Save")
+    // Save callback (use SafePointer to avoid use-after-free when editor is closed)
+    {
+        juce::Component::SafePointer<SoundCollectorAudioProcessorEditor> safeThis(this);
+        audioProcessor.setSaveCallback([safeThis](const juce::String& saveType) {
+            juce::MessageManager::callAsync([safeThis, saveType]() {
+                if (auto* editor = safeThis.getComponent())
                 {
-                    updateAutoSaveTimestamp();
+                    editor->showSaveTimestamp(saveType);
+                    if (saveType == "Auto Save")
+                    {
+                        editor->updateAutoSaveTimestamp();
+                    }
                 }
-            }
+            });
         });
-    });
+    }
 
     // File prefix callback removed - using sessionFilePrefix instead for thread safety
 
-    // State restoration callback
-    audioProcessor.setStateRestoredCallback([this]() {
-        syncUIWithProcessorState();
-    });
+    // State restoration callback (safe and on message thread)
+    {
+        juce::Component::SafePointer<SoundCollectorAudioProcessorEditor> safeThis(this);
+        audioProcessor.setStateRestoredCallback([safeThis]() {
+            juce::MessageManager::callAsync([safeThis]() {
+                if (auto* editor = safeThis.getComponent())
+                    editor->syncUIWithProcessorState();
+            });
+        });
+    }
 
     // Sync UI with restored state
     syncUIWithProcessorState();
@@ -390,6 +398,10 @@ SoundCollectorAudioProcessorEditor::~SoundCollectorAudioProcessorEditor()
         delete quickSaveLookAndFeel;
         quickSaveLookAndFeel = nullptr;
     }
+
+    // Clear processor callbacks that might reference this editor
+    audioProcessor.setSaveCallback(nullptr);
+    audioProcessor.setStateRestoredCallback(nullptr);
 }
 
 //==============================================================================
@@ -851,5 +863,3 @@ void SoundCollectorAudioProcessorEditor::syncUIWithProcessorState()
     DBG("UI synced with processor state - Test tone: " + juce::String(audioProcessor.isTestToneActive() ? "ON" : "OFF") +
         " Prefix: " + sessionPrefix + " Save dir: " + saveDir.getFullPathName());
 }
-
-
