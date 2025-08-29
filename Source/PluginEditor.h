@@ -12,6 +12,7 @@
 #include "PluginProcessor.h"
 
 #include "UI/LevelMeterComponent.h"
+#include "SettingsOverlayComponent.h"
 
 // Forward declaration
 class SoundCollectorAudioProcessorEditor;
@@ -21,42 +22,45 @@ class SoundCollectorAudioProcessorEditor;
 class MeterTimer : public juce::Timer
 {
 public:
-    MeterTimer(SoundCollectorAudioProcessorEditor& editor);
+    MeterTimer(SoundCollectorAudioProcessorEditor &editor);
     void timerCallback() override;
 
 private:
-    SoundCollectorAudioProcessorEditor& owner;
+    SoundCollectorAudioProcessorEditor &owner;
     friend class SoundCollectorAudioProcessorEditor;
 };
 
 //==============================================================================
 /**
-*/
-class SoundCollectorAudioProcessorEditor  : public juce::AudioProcessorEditor,
+ */
+class SoundCollectorAudioProcessorEditor : public juce::AudioProcessorEditor,
                                            public juce::Button::Listener,
                                            public juce::TextEditor::Listener
 {
 public:
+    // Settings overlay
+    void openSettingsOverlay();
+    void closeSettingsOverlay();
+    bool isSettingsOverlayOpen() const;
 
-
-    SoundCollectorAudioProcessorEditor (SoundCollectorAudioProcessor&);
+    SoundCollectorAudioProcessorEditor(SoundCollectorAudioProcessor &);
     ~SoundCollectorAudioProcessorEditor() override;
 
     //==============================================================================
-    void paint (juce::Graphics&) override;
+    void paint(juce::Graphics &) override;
     void resized() override;
 
     //==============================================================================
     // Button listener callback
-    void buttonClicked(juce::Button* button) override;
+    void buttonClicked(juce::Button *button) override;
 
     //==============================================================================
     // Text editor listener callback
-    void textEditorTextChanged(juce::TextEditor& editor) override;
+    void textEditorTextChanged(juce::TextEditor &editor) override;
 
     //==============================================================================
     // Mouse listener callback (overrides Component::mouseDown)
-    void mouseDown(const juce::MouseEvent& event) override;
+    void mouseDown(const juce::MouseEvent &event) override;
 
     //==============================================================================
     // Update auto-save timestamp
@@ -64,7 +68,7 @@ public:
 
     //==============================================================================
     // Timestamp display methods
-    void showSaveTimestamp(const juce::String& saveType);
+    void showSaveTimestamp(const juce::String &saveType);
 
     //==============================================================================
     // Get the file prefix from the input field (UI thread only)
@@ -76,7 +80,7 @@ public:
 
     //==============================================================================
     // Update save location button text
-    void updateSaveLocationButtonText(const juce::File& saveDir);
+    void updateSaveLocationButtonText(const juce::File &saveDir);
 
     // Background image loading
     void loadBackgroundImage();
@@ -88,7 +92,7 @@ public:
     void loadStateImages();
 
     // State indicator drawing
-    void drawStateIndicator(juce::Graphics& g);
+    void drawStateIndicator(juce::Graphics &g);
 
     // Component positioning
     void positionComponents();
@@ -96,9 +100,7 @@ public:
 private:
     // This reference is provided as a quick way for your editor to
     // access the processor object that created it.
-    SoundCollectorAudioProcessor& audioProcessor;
-
-
+    SoundCollectorAudioProcessor &audioProcessor;
 
     // File chooser
     std::unique_ptr<juce::FileChooser> directoryChooser;
@@ -142,8 +144,8 @@ private:
     juce::Image stateRecordingImage;
 
     // LookAndFeel instances as raw pointers (safer than static)
-    juce::LookAndFeel* saveLocationLookAndFeel;
-    juce::LookAndFeel* quickSaveLookAndFeel;
+    juce::LookAndFeel *saveLocationLookAndFeel;
+    juce::LookAndFeel *quickSaveLookAndFeel;
 
     // Timer for updating meters
     std::unique_ptr<MeterTimer> meterTimer;
@@ -156,19 +158,23 @@ private:
     class PulseTimer : public juce::Timer
     {
     public:
-        PulseTimer(SoundCollectorAudioProcessorEditor& editor);
+        PulseTimer(SoundCollectorAudioProcessorEditor &editor);
         void timerCallback() override;
 
     private:
-        SoundCollectorAudioProcessorEditor& owner;
+        SoundCollectorAudioProcessorEditor &owner;
         friend class SoundCollectorAudioProcessorEditor;
     };
 
     // Timer for pulsing animation
     std::unique_ptr<PulseTimer> pulseTimer;
 
+    // Settings overlay state and component
+    bool isSettingsOpen = false;
+    std::unique_ptr<class SettingsOverlayComponent> settingsOverlay;
+
     // Friend class for timer access
     friend class MeterTimer;
 
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (SoundCollectorAudioProcessorEditor)
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SoundCollectorAudioProcessorEditor)
 };
