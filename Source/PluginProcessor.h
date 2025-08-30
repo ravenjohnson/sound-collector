@@ -181,7 +181,7 @@ private:
     juce::File customSaveDirectory; // User-selected custom directory
 
     // Session-specific state variables (stored per DAW session)
-    juce::String sessionFilePrefix = "Filename"; // Default file prefix for this session
+    juce::String sessionFilePrefix; // Empty by default; UI shows placeholder
     juce::String sessionSaveDirectoryPath; // Path to save directory for this session
 
     // Audio and buffer handling

@@ -7,12 +7,12 @@
 
 //==============================================================================
 // Timer class for updating meters
-MeterTimer::MeterTimer(SoundCollectorAudioProcessorEditor& editor) : owner(editor) {}
+MeterTimer::MeterTimer(SoundCollectorAudioProcessorEditor &editor) : owner(editor) {}
 
 //==============================================================================
-SoundCollectorAudioProcessorEditor::SoundCollectorAudioProcessorEditor(SoundCollectorAudioProcessor& p)
+SoundCollectorAudioProcessorEditor::SoundCollectorAudioProcessorEditor(SoundCollectorAudioProcessor &p)
     : AudioProcessorEditor(&p), audioProcessor(p),
-      levelMeterComponent(static_cast<juce::AudioProcessor&>(p))
+      levelMeterComponent(static_cast<juce::AudioProcessor &>(p))
 {
     // Debug: Constructor called
     DBG("PluginEditor constructor called");
@@ -35,15 +35,15 @@ SoundCollectorAudioProcessorEditor::SoundCollectorAudioProcessorEditor(SoundColl
     class SaveLocationButtonLookAndFeel : public juce::LookAndFeel_V4
     {
     public:
-        SaveLocationButtonLookAndFeel(juce::Image& normalImage, juce::Image& hoverImage)
+        SaveLocationButtonLookAndFeel(juce::Image &normalImage, juce::Image &hoverImage)
             : normalButtonImage(normalImage), hoverButtonImage(hoverImage) {}
 
-        void drawButtonBackground(juce::Graphics& g, juce::Button& button,
-                                  const juce::Colour& backgroundColour,
+        void drawButtonBackground(juce::Graphics &g, juce::Button &button,
+                                  const juce::Colour &backgroundColour,
                                   bool isMouseOverButton, bool isButtonDown) override
         {
             // Draw the appropriate background image based on mouse state
-            juce::Image& imageToDraw = isMouseOverButton ? hoverButtonImage : normalButtonImage;
+            juce::Image &imageToDraw = isMouseOverButton ? hoverButtonImage : normalButtonImage;
 
             // More robust validation - check image validity and bounds
             if (imageToDraw.isValid() && imageToDraw.getWidth() > 0 && imageToDraw.getHeight() > 0)
@@ -61,7 +61,7 @@ SoundCollectorAudioProcessorEditor::SoundCollectorAudioProcessorEditor(SoundColl
             }
         }
 
-        void drawButtonText(juce::Graphics& g, juce::TextButton& button,
+        void drawButtonText(juce::Graphics &g, juce::TextButton &button,
                             bool isMouseOverButton, bool isButtonDown) override
         {
             // Draw only the text, no background or border
@@ -73,34 +73,34 @@ SoundCollectorAudioProcessorEditor::SoundCollectorAudioProcessorEditor(SoundColl
             auto buttonBounds = button.getLocalBounds();
             juce::Rectangle<int> textBounds(36, 0, buttonBounds.getWidth() - 36, buttonBounds.getHeight());
             g.drawFittedText(button.getButtonText(), textBounds,
-                           juce::Justification::centredLeft, 1);
+                             juce::Justification::centredLeft, 1);
         }
 
     private:
-        juce::Image& normalButtonImage;
-        juce::Image& hoverButtonImage;
+        juce::Image &normalButtonImage;
+        juce::Image &hoverButtonImage;
     };
 
     // Custom TextEditor LookAndFeel for transparent styling and text positioning
     class FlatTextEditorLookAndFeel : public juce::LookAndFeel_V4
     {
     public:
-        void fillTextEditorBackground(juce::Graphics& g, int width, int height, juce::TextEditor& textEditor) override
+        void fillTextEditorBackground(juce::Graphics &g, int width, int height, juce::TextEditor &textEditor) override
         {
             // Don't draw any background
         }
 
-        void drawTextEditorOutline(juce::Graphics& g, int width, int height, juce::TextEditor& textEditor) override
+        void drawTextEditorOutline(juce::Graphics &g, int width, int height, juce::TextEditor &textEditor) override
         {
             // No border - completely transparent outline
         }
 
-        int getTextEditorHorizontalMargin(juce::TextEditor& textEditor)
+        int getTextEditorHorizontalMargin(juce::TextEditor &textEditor)
         {
             return 12; // 12px margin from left edge
         }
 
-        int getTextEditorVerticalMargin(juce::TextEditor& textEditor)
+        int getTextEditorVerticalMargin(juce::TextEditor &textEditor)
         {
             return 2; // Default margin since setJustification is used for centering
         }
@@ -112,27 +112,28 @@ SoundCollectorAudioProcessorEditor::SoundCollectorAudioProcessorEditor(SoundColl
     // Configure the filename input
     filePrefixInput.setLookAndFeel(&flatTextEditorLookAndFeel);
 
-    settingsButton.onClick = [this]() {
+    settingsButton.onClick = [this]()
+    {
         juce::File initial = audioProcessor.getUserSaveDirectory();
         if (initial.getFullPathName().isEmpty())
             initial = juce::File::getSpecialLocation(juce::File::userDesktopDirectory);
 
         directoryChooser = std::make_unique<juce::FileChooser>("Select Default Save Folder", initial);
         directoryChooser->launchAsync(juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectDirectories,
-            [this](const juce::FileChooser& fc)
-            {
-                auto dir = fc.getResult();
-                if (dir != juce::File())
-                    audioProcessor.setUserSaveDirectoryAndPersist(dir);
-                directoryChooser.reset();
-            });
+                                      [this](const juce::FileChooser &fc)
+                                      {
+                                          auto dir = fc.getResult();
+                                          if (dir != juce::File())
+                                              audioProcessor.setUserSaveDirectoryAndPersist(dir);
+                                          directoryChooser.reset();
+                                      });
     };
     addAndMakeVisible(settingsButton);
 
     // Configure filename input with placeholder behavior
     filePrefixInput.setFont(juce::Font(juce::FontOptions().withHeight(14.0f)));
     filePrefixInput.setJustification(juce::Justification::centredLeft); // Center text vertically, left-align horizontally
-    filePrefixInput.setIndents(12, 0); // 12px left padding, 0px right padding
+    filePrefixInput.setIndents(12, 0);                                  // 12px left padding, 0px right padding
 
     // Make border and background transparent, set white text
     filePrefixInput.setColour(juce::TextEditor::backgroundColourId, juce::Colours::transparentBlack);
@@ -143,9 +144,10 @@ SoundCollectorAudioProcessorEditor::SoundCollectorAudioProcessorEditor(SoundColl
     filePrefixInput.setColour(juce::TextEditor::highlightColourId, juce::Colours::transparentBlack);
 
     // Set placeholder text
-    filePrefixInput.setTextToShowWhenEmpty("Filename", juce::Colours::grey);
+    filePrefixInput.setTextToShowWhenEmpty("Untitled", juce::Colours::grey);
 
-    filePrefixInput.onTextChange = [this]() {
+    filePrefixInput.onTextChange = [this]()
+    {
         audioProcessor.setSessionFilePrefix(filePrefixInput.getText());
         DBG("Session file prefix updated: " + filePrefixInput.getText());
     };
@@ -161,21 +163,22 @@ SoundCollectorAudioProcessorEditor::SoundCollectorAudioProcessorEditor(SoundColl
 
     // Status display components
     recordButton.setButtonText("Quick Save");
-    recordButton.onClick = [this]() {
+    recordButton.onClick = [this]()
+    {
         audioProcessor.saveLastRecording(false);
     };
     // Configure Quick save button with background images
     class QuickSaveButtonLookAndFeel : public juce::LookAndFeel_V4
     {
     public:
-        QuickSaveButtonLookAndFeel(juce::Image& normalImage, juce::Image& hoverImage)
+        QuickSaveButtonLookAndFeel(juce::Image &normalImage, juce::Image &hoverImage)
             : normalButtonImage(normalImage), hoverButtonImage(hoverImage) {}
 
-        void drawButtonBackground(juce::Graphics& g, juce::Button& button, const juce::Colour& backgroundColour,
-                                bool isMouseOverButton, bool isButtonDown) override
+        void drawButtonBackground(juce::Graphics &g, juce::Button &button, const juce::Colour &backgroundColour,
+                                  bool isMouseOverButton, bool isButtonDown) override
         {
             // Draw the appropriate background image based on mouse state
-            juce::Image& imageToDraw = isMouseOverButton ? hoverButtonImage : normalButtonImage;
+            juce::Image &imageToDraw = isMouseOverButton ? hoverButtonImage : normalButtonImage;
 
             // More robust validation - check image validity and bounds
             if (imageToDraw.isValid() && imageToDraw.getWidth() > 0 && imageToDraw.getHeight() > 0)
@@ -193,13 +196,13 @@ SoundCollectorAudioProcessorEditor::SoundCollectorAudioProcessorEditor(SoundColl
             }
         }
 
-        void drawButtonText(juce::Graphics& g, juce::TextButton& button,
-                           bool isMouseOverButton, bool isButtonDown) override
+        void drawButtonText(juce::Graphics &g, juce::TextButton &button,
+                            bool isMouseOverButton, bool isButtonDown) override
         {
             g.setFont(juce::Font(juce::FontOptions().withHeight(14.0f)));
             g.setColour(button.findColour(button.getToggleState() ? juce::TextButton::textColourOnId
                                                                   : juce::TextButton::textColourOffId)
-                                   .withMultipliedAlpha(button.isEnabled() ? 1.0f : 0.5f));
+                            .withMultipliedAlpha(button.isEnabled() ? 1.0f : 0.5f));
 
             const int yIndent = juce::jmin(4, button.proportionOfHeight(0.3f));
             const int cornerSize = juce::jmin(button.getHeight(), button.getWidth()) / 2;
@@ -211,19 +214,20 @@ SoundCollectorAudioProcessorEditor::SoundCollectorAudioProcessorEditor(SoundColl
 
             if (textWidth > 0)
                 g.drawFittedText(button.getButtonText(),
-                                leftIndent, yIndent, textWidth, button.getHeight() - yIndent * 2,
-                                juce::Justification::centredLeft, 2);
+                                 leftIndent, yIndent, textWidth, button.getHeight() - yIndent * 2,
+                                 juce::Justification::centredLeft, 2);
         }
 
     private:
-        juce::Image& normalButtonImage;
-        juce::Image& hoverButtonImage;
+        juce::Image &normalButtonImage;
+        juce::Image &hoverButtonImage;
     };
 
     addAndMakeVisible(recordButton);
 
     testToneToggle.setButtonText("Test tone");
-    testToneToggle.onClick = [this]() {
+    testToneToggle.onClick = [this]()
+    {
         audioProcessor.setTestToneActive(testToneToggle.getToggleState());
     };
     addAndMakeVisible(testToneToggle);
@@ -305,33 +309,31 @@ SoundCollectorAudioProcessorEditor::SoundCollectorAudioProcessorEditor(SoundColl
     meterTimer->startTimerHz(30);
 
     // Save callback
-    audioProcessor.setSaveCallback([this](const juce::String& saveType) {
+    audioProcessor.setSaveCallback([this](const juce::String &saveType)
+                                   {
         showSaveTimestamp(saveType);
         if (saveType == "Auto Save")
         {
             updateAutoSaveTimestamp();
-        }
-    });
+        } });
 
     // File prefix callback for manual saves
-    audioProcessor.setFilePrefixCallback([this]() {
-        return getFilePrefix();
-    });
+    audioProcessor.setFilePrefixCallback([this]()
+                                         { return getFilePrefix(); });
 
     // State restoration callback
-    audioProcessor.setStateRestoredCallback([this]() {
-        syncUIWithProcessorState();
-    });
+    audioProcessor.setStateRestoredCallback([this]()
+                                            { syncUIWithProcessorState(); });
 
     // Sync UI with restored state
     syncUIWithProcessorState();
 
     // Use a timer to defer setSize() to avoid initialization crashes
     // This prevents JUCE from calling resized() during component initialization
-    juce::Timer::callAfterDelay(1, [this]() {
+    juce::Timer::callAfterDelay(1, [this]()
+                                {
         setSize(480, 400);
-        positionComponents();
-    });
+        positionComponents(); });
 }
 
 SoundCollectorAudioProcessorEditor::~SoundCollectorAudioProcessorEditor()
@@ -365,27 +367,25 @@ void SoundCollectorAudioProcessorEditor::loadBackgroundImage()
     juce::File bundleFile = juce::File::getSpecialLocation(juce::File::currentExecutableFile);
     if (bundleFile.getParentDirectory().getFileName() == "MacOS")
     {
-        possiblePaths.add(bundleFile.getParentDirectory().getParentDirectory()
-                         .getChildFile("Resources")
-                         .getChildFile("background.png"));
+        possiblePaths.add(bundleFile.getParentDirectory().getParentDirectory().getChildFile("Resources").getChildFile("background.png"));
     }
 
     // 2. Executable directory
     possiblePaths.add(bundleFile.getChildFile("background.png"));
 
     // 3. Development path (relative to project root)
-    juce::File projectRoot = bundleFile.getParentDirectory()  // Contents/MacOS/
-                               .getParentDirectory()        // Contents/
-                               .getParentDirectory()        // SoundCollector.app/
-                               .getParentDirectory()        // Debug/
-                               .getParentDirectory()        // build/
-                               .getParentDirectory()        // MacOSX/
-                               .getParentDirectory()        // Builds/
-                               .getParentDirectory();       // project_root/
+    juce::File projectRoot = bundleFile.getParentDirectory() // Contents/MacOS/
+                                 .getParentDirectory()       // Contents/
+                                 .getParentDirectory()       // SoundCollector.app/
+                                 .getParentDirectory()       // Debug/
+                                 .getParentDirectory()       // build/
+                                 .getParentDirectory()       // MacOSX/
+                                 .getParentDirectory()       // Builds/
+                                 .getParentDirectory();      // project_root/
     possiblePaths.add(projectRoot.getChildFile("Source").getChildFile("Assets").getChildFile("background.png"));
 
     // Try each path
-    for (const auto& path : possiblePaths)
+    for (const auto &path : possiblePaths)
     {
         if (path.existsAsFile())
         {
@@ -420,7 +420,7 @@ void SoundCollectorAudioProcessorEditor::loadBackgroundImage()
     else
     {
         DBG("Background image file not found. Tried paths:");
-        for (const auto& path : possiblePaths)
+        for (const auto &path : possiblePaths)
         {
             DBG("  " + path.getFullPathName() + " (exists: " + (path.existsAsFile() ? "yes" : "no") + ")");
         }
@@ -439,26 +439,25 @@ void SoundCollectorAudioProcessorEditor::loadButtonImages()
     // 1. App bundle Resources directory
     if (bundleFile.getParentDirectory().getFileName() == "MacOS")
     {
-        possiblePaths.add(bundleFile.getParentDirectory().getParentDirectory()
-                         .getChildFile("Resources"));
+        possiblePaths.add(bundleFile.getParentDirectory().getParentDirectory().getChildFile("Resources"));
     }
 
     // 2. Executable directory
     possiblePaths.add(bundleFile.getParentDirectory());
 
     // 3. Development path (relative to project root)
-    juce::File projectRoot = bundleFile.getParentDirectory()  // Contents/MacOS/
-                               .getParentDirectory()        // Contents/
-                               .getParentDirectory()        // SoundCollector.app/
-                               .getParentDirectory()        // Debug/
-                               .getParentDirectory()        // build/
-                               .getParentDirectory()        // MacOSX/
-                               .getParentDirectory()        // Builds/
-                               .getParentDirectory();       // project_root/
+    juce::File projectRoot = bundleFile.getParentDirectory() // Contents/MacOS/
+                                 .getParentDirectory()       // Contents/
+                                 .getParentDirectory()       // SoundCollector.app/
+                                 .getParentDirectory()       // Debug/
+                                 .getParentDirectory()       // build/
+                                 .getParentDirectory()       // MacOSX/
+                                 .getParentDirectory()       // Builds/
+                                 .getParentDirectory();      // project_root/
     possiblePaths.add(projectRoot.getChildFile("Source").getChildFile("Assets"));
 
     // Load Save Location button images
-    for (const auto& path : possiblePaths)
+    for (const auto &path : possiblePaths)
     {
         juce::File normalFile = path.getChildFile("button-location.png");
         juce::File hoverFile = path.getChildFile("button-location-hover.png");
@@ -481,7 +480,7 @@ void SoundCollectorAudioProcessorEditor::loadButtonImages()
     }
 
     // Load Quick Save button images
-    for (const auto& path : possiblePaths)
+    for (const auto &path : possiblePaths)
     {
         juce::File normalFile = path.getChildFile("button-save.png");
         juce::File hoverFile = path.getChildFile("button-save-hover.png");
@@ -516,9 +515,8 @@ void SoundCollectorAudioProcessorEditor::loadButtonImages()
 
 //==============================================================================
 
-
 //==============================================================================
-void SoundCollectorAudioProcessorEditor::paint(juce::Graphics& g)
+void SoundCollectorAudioProcessorEditor::paint(juce::Graphics &g)
 {
     // Draw background image if available, otherwise use solid color
     if (backgroundImage.isValid())
@@ -574,8 +572,6 @@ void SoundCollectorAudioProcessorEditor::resized()
     // since we position components manually in the constructor after everything is ready
 }
 
-
-
 void SoundCollectorAudioProcessorEditor::positionComponents()
 {
     // Fixed size plugin - use absolute positioning
@@ -609,7 +605,7 @@ void SoundCollectorAudioProcessorEditor::positionComponents()
 
     // Position "Last saved:" text directly below "Waiting for audio" text
     lastSaveTitleLabel.setBounds(32, 232, 100, 20); // Fixed width for "Last saved:"
-    lastSaveLabel.setBounds(100, 232, 150, 20); // Timestamp positioned to the right
+    lastSaveLabel.setBounds(100, 232, 150, 20);     // Timestamp positioned to the right
 
     // Level meter - fixed position
     levelMeterComponent.setBounds(350, 40, 100, 300);
@@ -688,12 +684,12 @@ void MeterTimer::timerCallback()
 }
 
 //==============================================================================
-void SoundCollectorAudioProcessorEditor::buttonClicked(juce::Button* button)
+void SoundCollectorAudioProcessorEditor::buttonClicked(juce::Button *button)
 {
     // Button handling is now done through component callbacks
 }
 
-void SoundCollectorAudioProcessorEditor::showSaveTimestamp(const juce::String& saveType)
+void SoundCollectorAudioProcessorEditor::showSaveTimestamp(const juce::String &saveType)
 {
     auto now = juce::Time::getCurrentTime();
     juce::String timestamp = now.toString(false, true, true, true);
@@ -702,14 +698,14 @@ void SoundCollectorAudioProcessorEditor::showSaveTimestamp(const juce::String& s
 
 //==============================================================================
 // Text editor listener implementations
-void SoundCollectorAudioProcessorEditor::textEditorTextChanged(juce::TextEditor& editor)
+void SoundCollectorAudioProcessorEditor::textEditorTextChanged(juce::TextEditor &editor)
 {
     // Text editor handling is now done through component callbacks
 }
 
 //==============================================================================
 // Mouse listener implementation
-void SoundCollectorAudioProcessorEditor::mouseDown(const juce::MouseEvent& event)
+void SoundCollectorAudioProcessorEditor::mouseDown(const juce::MouseEvent &event)
 {
     // Mouse handling is now done through component callbacks
 }

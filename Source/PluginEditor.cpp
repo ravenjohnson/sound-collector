@@ -2,16 +2,15 @@
 #include "PluginEditor.h"
 
 //==============================================================================
-// Version information - Updat./final_solution.she this for each release
-#define PLUGIN_VERSION "5.2.4"
+// Version information is sourced from JucePlugin_VersionString
 
 //==============================================================================
 // Timer class for updating meters
-MeterTimer::MeterTimer(SoundCollectorAudioProcessorEditor& editor) : owner(editor) {}
+MeterTimer::MeterTimer(SoundCollectorAudioProcessorEditor &editor) : owner(editor) {}
 
 //==============================================================================
 // PulseTimer implementation
-SoundCollectorAudioProcessorEditor::PulseTimer::PulseTimer(SoundCollectorAudioProcessorEditor& editor) : owner(editor) {}
+SoundCollectorAudioProcessorEditor::PulseTimer::PulseTimer(SoundCollectorAudioProcessorEditor &editor) : owner(editor) {}
 
 void SoundCollectorAudioProcessorEditor::PulseTimer::timerCallback()
 {
@@ -39,9 +38,9 @@ void SoundCollectorAudioProcessorEditor::PulseTimer::timerCallback()
 }
 
 //==============================================================================
-SoundCollectorAudioProcessorEditor::SoundCollectorAudioProcessorEditor(SoundCollectorAudioProcessor& p)
+SoundCollectorAudioProcessorEditor::SoundCollectorAudioProcessorEditor(SoundCollectorAudioProcessor &p)
     : AudioProcessorEditor(&p), audioProcessor(p),
-      levelMeterComponent(static_cast<juce::AudioProcessor&>(p)),
+      levelMeterComponent(static_cast<juce::AudioProcessor &>(p)),
       saveLocationLookAndFeel(nullptr),
       quickSaveLookAndFeel(nullptr)
 {
@@ -71,15 +70,15 @@ SoundCollectorAudioProcessorEditor::SoundCollectorAudioProcessorEditor(SoundColl
     class SaveLocationButtonLookAndFeel : public juce::LookAndFeel_V4
     {
     public:
-        SaveLocationButtonLookAndFeel(juce::Image& normalImage, juce::Image& hoverImage)
+        SaveLocationButtonLookAndFeel(juce::Image &normalImage, juce::Image &hoverImage)
             : normalButtonImage(normalImage), hoverButtonImage(hoverImage) {}
 
-        void drawButtonBackground(juce::Graphics& g, juce::Button& button,
-                                  const juce::Colour& backgroundColour,
+        void drawButtonBackground(juce::Graphics &g, juce::Button &button,
+                                  const juce::Colour &backgroundColour,
                                   bool isMouseOverButton, bool isButtonDown) override
         {
             // Draw the appropriate background image based on mouse state
-            juce::Image& imageToDraw = isMouseOverButton ? hoverButtonImage : normalButtonImage;
+            juce::Image &imageToDraw = isMouseOverButton ? hoverButtonImage : normalButtonImage;
 
             // More robust validation - check image validity and bounds
             if (imageToDraw.isValid() && imageToDraw.getWidth() > 0 && imageToDraw.getHeight() > 0)
@@ -97,7 +96,7 @@ SoundCollectorAudioProcessorEditor::SoundCollectorAudioProcessorEditor(SoundColl
             }
         }
 
-        void drawButtonText(juce::Graphics& g, juce::TextButton& button,
+        void drawButtonText(juce::Graphics &g, juce::TextButton &button,
                             bool isMouseOverButton, bool isButtonDown) override
         {
             // Draw only the text, no background or border
@@ -109,34 +108,34 @@ SoundCollectorAudioProcessorEditor::SoundCollectorAudioProcessorEditor(SoundColl
             auto buttonBounds = button.getLocalBounds();
             juce::Rectangle<int> textBounds(36, 0, buttonBounds.getWidth() - 36, buttonBounds.getHeight());
             g.drawFittedText(button.getButtonText(), textBounds,
-                           juce::Justification::centredLeft, 1);
+                             juce::Justification::centredLeft, 1);
         }
 
     private:
-        juce::Image& normalButtonImage;
-        juce::Image& hoverButtonImage;
+        juce::Image &normalButtonImage;
+        juce::Image &hoverButtonImage;
     };
 
     // Custom TextEditor LookAndFeel for transparent styling and text positioning
     class FlatTextEditorLookAndFeel : public juce::LookAndFeel_V4
     {
     public:
-        void fillTextEditorBackground(juce::Graphics& g, int width, int height, juce::TextEditor& textEditor) override
+        void fillTextEditorBackground(juce::Graphics &g, int width, int height, juce::TextEditor &textEditor) override
         {
             // Don't draw any background
         }
 
-        void drawTextEditorOutline(juce::Graphics& g, int width, int height, juce::TextEditor& textEditor) override
+        void drawTextEditorOutline(juce::Graphics &g, int width, int height, juce::TextEditor &textEditor) override
         {
             // No border - completely transparent outline
         }
 
-        int getTextEditorHorizontalMargin(juce::TextEditor& textEditor)
+        int getTextEditorHorizontalMargin(juce::TextEditor &textEditor)
         {
             return 12; // 12px margin from left edge
         }
 
-        int getTextEditorVerticalMargin(juce::TextEditor& textEditor)
+        int getTextEditorVerticalMargin(juce::TextEditor &textEditor)
         {
             return 2; // Default margin since setJustification is used for centering
         }
@@ -148,30 +147,31 @@ SoundCollectorAudioProcessorEditor::SoundCollectorAudioProcessorEditor(SoundColl
     // Configure the filename input
     filePrefixInput.setLookAndFeel(&flatTextEditorLookAndFeel);
 
-    settingsButton.onClick = [this]() {
+    settingsButton.onClick = [this]()
+    {
         juce::File initial = audioProcessor.getUserSaveDirectory();
         if (initial.getFullPathName().isEmpty())
             initial = juce::File::getSpecialLocation(juce::File::userDesktopDirectory);
 
         directoryChooser = std::make_unique<juce::FileChooser>("Select Default Save Folder", initial);
         directoryChooser->launchAsync(juce::FileBrowserComponent::canSelectDirectories,
-            [this](const juce::FileChooser& fc)
-            {
-                auto dir = fc.getResult();
-                if (dir != juce::File())
-                {
-                    audioProcessor.setUserSaveDirectoryAndPersist(dir);
-                    updateSaveLocationButtonText(dir);
-                }
-                directoryChooser.reset();
-            });
+                                      [this](const juce::FileChooser &fc)
+                                      {
+                                          auto dir = fc.getResult();
+                                          if (dir != juce::File())
+                                          {
+                                              audioProcessor.setUserSaveDirectoryAndPersist(dir);
+                                              updateSaveLocationButtonText(dir);
+                                          }
+                                          directoryChooser.reset();
+                                      });
     };
     addAndMakeVisible(settingsButton);
 
     // Configure filename input with placeholder behavior
     filePrefixInput.setFont(juce::Font(juce::FontOptions().withHeight(14.0f)));
     filePrefixInput.setJustification(juce::Justification::centredLeft); // Center text vertically, left-align horizontally
-    filePrefixInput.setIndents(12, 0); // 12px left padding, 0px right padding
+    filePrefixInput.setIndents(12, 0);                                  // 12px left padding, 0px right padding
 
     // Make border and background transparent, set white text
     filePrefixInput.setColour(juce::TextEditor::backgroundColourId, juce::Colours::transparentBlack);
@@ -182,9 +182,14 @@ SoundCollectorAudioProcessorEditor::SoundCollectorAudioProcessorEditor(SoundColl
     filePrefixInput.setColour(juce::TextEditor::highlightColourId, juce::Colours::transparentBlack);
 
     // Set placeholder text
-    filePrefixInput.setTextToShowWhenEmpty("Filename", juce::Colours::grey);
+    filePrefixInput.setTextToShowWhenEmpty("untitled", juce::Colours::grey);
 
-    filePrefixInput.onTextChange = [this]() {
+    // UX: select-all on focus and clear default text on click
+    filePrefixInput.setSelectAllWhenFocused(true);
+    filePrefixInput.addMouseListener(this, false);
+
+    filePrefixInput.onTextChange = [this]()
+    {
         audioProcessor.setSessionFilePrefix(filePrefixInput.getText());
         DBG("Session file prefix updated: " + filePrefixInput.getText());
     };
@@ -200,21 +205,22 @@ SoundCollectorAudioProcessorEditor::SoundCollectorAudioProcessorEditor(SoundColl
 
     // Status display components
     recordButton.setButtonText("Quick Save");
-    recordButton.onClick = [this]() {
+    recordButton.onClick = [this]()
+    {
         audioProcessor.saveLastRecording(false);
     };
     // Configure Quick save button with background images
     class QuickSaveButtonLookAndFeel : public juce::LookAndFeel_V4
     {
     public:
-        QuickSaveButtonLookAndFeel(juce::Image& normalImage, juce::Image& hoverImage)
+        QuickSaveButtonLookAndFeel(juce::Image &normalImage, juce::Image &hoverImage)
             : normalButtonImage(normalImage), hoverButtonImage(hoverImage) {}
 
-        void drawButtonBackground(juce::Graphics& g, juce::Button& button, const juce::Colour& backgroundColour,
-                                bool isMouseOverButton, bool isButtonDown) override
+        void drawButtonBackground(juce::Graphics &g, juce::Button &button, const juce::Colour &backgroundColour,
+                                  bool isMouseOverButton, bool isButtonDown) override
         {
             // Draw the appropriate background image based on mouse state
-            juce::Image& imageToDraw = isMouseOverButton ? hoverButtonImage : normalButtonImage;
+            juce::Image &imageToDraw = isMouseOverButton ? hoverButtonImage : normalButtonImage;
 
             // More robust validation - check image validity and bounds
             if (imageToDraw.isValid() && imageToDraw.getWidth() > 0 && imageToDraw.getHeight() > 0)
@@ -232,13 +238,13 @@ SoundCollectorAudioProcessorEditor::SoundCollectorAudioProcessorEditor(SoundColl
             }
         }
 
-        void drawButtonText(juce::Graphics& g, juce::TextButton& button,
-                           bool isMouseOverButton, bool isButtonDown) override
+        void drawButtonText(juce::Graphics &g, juce::TextButton &button,
+                            bool isMouseOverButton, bool isButtonDown) override
         {
             g.setFont(juce::Font(juce::FontOptions().withHeight(14.0f)));
             g.setColour(button.findColour(button.getToggleState() ? juce::TextButton::textColourOnId
                                                                   : juce::TextButton::textColourOffId)
-                                   .withMultipliedAlpha(button.isEnabled() ? 1.0f : 0.5f));
+                            .withMultipliedAlpha(button.isEnabled() ? 1.0f : 0.5f));
 
             const int yIndent = juce::jmin(4, button.proportionOfHeight(0.3f));
             const int cornerSize = juce::jmin(button.getHeight(), button.getWidth()) / 2;
@@ -250,19 +256,20 @@ SoundCollectorAudioProcessorEditor::SoundCollectorAudioProcessorEditor(SoundColl
 
             if (textWidth > 0)
                 g.drawFittedText(button.getButtonText(),
-                                leftIndent, yIndent, textWidth, button.getHeight() - yIndent * 2,
-                                juce::Justification::centredLeft, 2);
+                                 leftIndent, yIndent, textWidth, button.getHeight() - yIndent * 2,
+                                 juce::Justification::centredLeft, 2);
         }
 
     private:
-        juce::Image& normalButtonImage;
-        juce::Image& hoverButtonImage;
+        juce::Image &normalButtonImage;
+        juce::Image &hoverButtonImage;
     };
 
     addAndMakeVisible(recordButton);
 
     testToneToggle.setButtonText("Test tone");
-    testToneToggle.onClick = [this]() {
+    testToneToggle.onClick = [this]()
+    {
         audioProcessor.setTestToneActive(testToneToggle.getToggleState());
     };
     addAndMakeVisible(testToneToggle);
@@ -301,7 +308,7 @@ SoundCollectorAudioProcessorEditor::SoundCollectorAudioProcessorEditor(SoundColl
     versionLabel.setJustificationType(juce::Justification::centred);
     versionLabel.setFont(juce::FontOptions(14.0f));
     versionLabel.setColour(juce::Label::textColourId, juce::Colours::grey);
-    versionLabel.setText(PLUGIN_VERSION, juce::dontSendNotification);
+    versionLabel.setText(JucePlugin_VersionString, juce::dontSendNotification);
     addAndMakeVisible(versionLabel);
 
     // Apply button LookAndFeel with loaded images (only if images are valid)
@@ -342,7 +349,8 @@ SoundCollectorAudioProcessorEditor::SoundCollectorAudioProcessorEditor(SoundColl
     pulseTimer->startTimerHz(60); // 60 FPS for smooth animation
 
     // Save callback
-    audioProcessor.setSaveCallback([this](const juce::String& saveType) {
+    audioProcessor.setSaveCallback([this](const juce::String &saveType)
+                                   {
         // Ensure we're on the message thread and the editor is still valid
         juce::MessageManager::callAsync([this, saveType]() {
             if (this != nullptr) // Check if editor is still valid
@@ -353,25 +361,23 @@ SoundCollectorAudioProcessorEditor::SoundCollectorAudioProcessorEditor(SoundColl
                     updateAutoSaveTimestamp();
                 }
             }
-        });
-    });
+        }); });
 
     // File prefix callback removed - using sessionFilePrefix instead for thread safety
 
     // State restoration callback
-    audioProcessor.setStateRestoredCallback([this]() {
-        syncUIWithProcessorState();
-    });
+    audioProcessor.setStateRestoredCallback([this]()
+                                            { syncUIWithProcessorState(); });
 
     // Sync UI with restored state
     syncUIWithProcessorState();
 
     // Use a timer to defer setSize() to avoid initialization crashes
     // This prevents JUCE from calling resized() during component initialization
-    juce::Timer::callAfterDelay(1, [this]() {
+    juce::Timer::callAfterDelay(1, [this]()
+                                {
         setSize(480, 400);
-        positionComponents();
-    });
+        positionComponents(); });
 }
 
 SoundCollectorAudioProcessorEditor::~SoundCollectorAudioProcessorEditor()
@@ -431,8 +437,10 @@ void SoundCollectorAudioProcessorEditor::loadButtonImages()
     else
     {
         DBG("Failed to load Save Location button images from BinaryData");
-        if (!saveLocationButtonImage.isValid()) DBG("  - saveLocationButtonImage is invalid");
-        if (!saveLocationButtonHoverImage.isValid()) DBG("  - saveLocationButtonHoverImage is invalid");
+        if (!saveLocationButtonImage.isValid())
+            DBG("  - saveLocationButtonImage is invalid");
+        if (!saveLocationButtonHoverImage.isValid())
+            DBG("  - saveLocationButtonHoverImage is invalid");
     }
 
     // Load Quick Save button images
@@ -447,8 +455,10 @@ void SoundCollectorAudioProcessorEditor::loadButtonImages()
     else
     {
         DBG("Failed to load Quick Save button images from BinaryData");
-        if (!quickSaveButtonImage.isValid()) DBG("  - quickSaveButtonImage is invalid");
-        if (!quickSaveButtonHoverImage.isValid()) DBG("  - quickSaveButtonHoverImage is invalid");
+        if (!quickSaveButtonImage.isValid())
+            DBG("  - quickSaveButtonImage is invalid");
+        if (!quickSaveButtonHoverImage.isValid())
+            DBG("  - quickSaveButtonHoverImage is invalid");
     }
 
     // Debug: Check if all button images were loaded successfully
@@ -498,10 +508,10 @@ void SoundCollectorAudioProcessorEditor::loadStateImages()
 }
 
 //==============================================================================
-void SoundCollectorAudioProcessorEditor::drawStateIndicator(juce::Graphics& g)
+void SoundCollectorAudioProcessorEditor::drawStateIndicator(juce::Graphics &g)
 {
     // Determine which state image to show based on current processor state
-    juce::Image* stateImage = nullptr;
+    juce::Image *stateImage = nullptr;
 
     if (audioProcessor.isTestToneActive())
     {
@@ -569,7 +579,7 @@ void SoundCollectorAudioProcessorEditor::drawStateIndicator(juce::Graphics& g)
 
         // Draw the state image
         g.drawImage(*stateImage, indicatorX, indicatorY, indicatorSize, indicatorSize,
-                   0, 0, stateImage->getWidth(), stateImage->getHeight());
+                    0, 0, stateImage->getWidth(), stateImage->getHeight());
 
         // Reset opacity
         g.setOpacity(1.0f);
@@ -577,7 +587,7 @@ void SoundCollectorAudioProcessorEditor::drawStateIndicator(juce::Graphics& g)
 }
 
 //==============================================================================
-void SoundCollectorAudioProcessorEditor::paint(juce::Graphics& g)
+void SoundCollectorAudioProcessorEditor::paint(juce::Graphics &g)
 {
     // Draw background image if available, otherwise use solid color
     if (backgroundImage.isValid())
@@ -664,7 +674,7 @@ void SoundCollectorAudioProcessorEditor::positionComponents()
 
     // Position "Last saved:" text directly below "Waiting for audio" text
     lastSaveTitleLabel.setBounds(32, 232, 100, 20); // Fixed width for "Last saved:"
-    lastSaveLabel.setBounds(100, 232, 150, 20); // Timestamp positioned to the right
+    lastSaveLabel.setBounds(100, 232, 150, 20);     // Timestamp positioned to the right
 
     // Level meter - fixed position
     levelMeterComponent.setBounds(393, 174, 40, 160);
@@ -746,12 +756,12 @@ void MeterTimer::timerCallback()
 }
 
 //==============================================================================
-void SoundCollectorAudioProcessorEditor::buttonClicked(juce::Button* button)
+void SoundCollectorAudioProcessorEditor::buttonClicked(juce::Button *button)
 {
     // Button handling is now done through component callbacks
 }
 
-void SoundCollectorAudioProcessorEditor::showSaveTimestamp(const juce::String& saveType)
+void SoundCollectorAudioProcessorEditor::showSaveTimestamp(const juce::String &saveType)
 {
     // Safety check to ensure we're on the message thread and the component is still valid
     if (!juce::MessageManager::getInstance()->isThisTheMessageThread())
@@ -767,16 +777,22 @@ void SoundCollectorAudioProcessorEditor::showSaveTimestamp(const juce::String& s
 
 //==============================================================================
 // Text editor listener implementations
-void SoundCollectorAudioProcessorEditor::textEditorTextChanged(juce::TextEditor& editor)
+void SoundCollectorAudioProcessorEditor::textEditorTextChanged(juce::TextEditor &editor)
 {
     // Text editor handling is now done through component callbacks
 }
 
 //==============================================================================
 // Mouse listener implementation
-void SoundCollectorAudioProcessorEditor::mouseDown(const juce::MouseEvent& event)
+void SoundCollectorAudioProcessorEditor::mouseDown(const juce::MouseEvent &event)
 {
-    // Mouse handling is now done through component callbacks
+    // Clear the filename field on first click if it's showing a default
+    if (event.eventComponent == &filePrefixInput)
+    {
+        auto current = filePrefixInput.getText();
+        if (current.isEmpty() || current == "Filename" || current == "untitled")
+            filePrefixInput.clear();
+    }
 }
 
 //==============================================================================
@@ -796,7 +812,7 @@ void SoundCollectorAudioProcessorEditor::updateAutoSaveTimestamp()
 }
 
 //==============================================================================
-void SoundCollectorAudioProcessorEditor::updateSaveLocationButtonText(const juce::File& saveDir)
+void SoundCollectorAudioProcessorEditor::updateSaveLocationButtonText(const juce::File &saveDir)
 {
     if (saveDir.exists() && saveDir.isDirectory())
     {
@@ -806,14 +822,14 @@ void SoundCollectorAudioProcessorEditor::updateSaveLocationButtonText(const juce
             // If folder name is empty (e.g., root directory), use the full path
             folderName = saveDir.getFullPathName();
         }
-        
+
         // Truncate if the text is too long for the button
         const int maxLength = 15; // Adjust this value based on your button width
         if (folderName.length() > maxLength)
         {
             folderName = folderName.substring(0, maxLength - 3) + "...";
         }
-        
+
         settingsButton.setButtonText(folderName);
         DBG("Updated save location button text to: " + folderName);
     }
@@ -851,5 +867,3 @@ void SoundCollectorAudioProcessorEditor::syncUIWithProcessorState()
     DBG("UI synced with processor state - Test tone: " + juce::String(audioProcessor.isTestToneActive() ? "ON" : "OFF") +
         " Prefix: " + sessionPrefix + " Save dir: " + saveDir.getFullPathName());
 }
-
-

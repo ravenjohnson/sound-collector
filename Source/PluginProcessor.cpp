@@ -18,7 +18,7 @@
 class SaveThread : public juce::Thread
 {
 public:
-    SaveThread(SoundCollectorAudioProcessor& processor)
+    SaveThread(SoundCollectorAudioProcessor &processor)
         : Thread("SoundCollector Save Thread"), owner(processor) {}
 
     void run() override
@@ -43,7 +43,7 @@ public:
     }
 
 private:
-    SoundCollectorAudioProcessor& owner;
+    SoundCollectorAudioProcessor &owner;
 };
 
 //==============================================================================
@@ -51,15 +51,12 @@ private:
 class AutoSaveTimer : public juce::Timer
 {
 public:
-    AutoSaveTimer(SoundCollectorAudioProcessor& processor) : owner(processor) {}
+    AutoSaveTimer(SoundCollectorAudioProcessor &processor) : owner(processor) {}
 
     void timerCallback() override
     {
         // Debug autosave logic
-        DBG("Autosave timer triggered: Enabled=" + juce::String(owner.isAutoSaveEnabled() ? 1 : 0)
-            + " HasEnoughAudio=" + juce::String(owner.hasEnoughAudioToSave() ? 1 : 0)
-            + " MeaningfulSamples=" + juce::String(owner.getMeaningfulAudioSamples())
-            + " MinRequired=" + juce::String(owner.getMinAudioSamplesForSave()));
+        DBG("Autosave timer triggered: Enabled=" + juce::String(owner.isAutoSaveEnabled() ? 1 : 0) + " HasEnoughAudio=" + juce::String(owner.hasEnoughAudioToSave() ? 1 : 0) + " MeaningfulSamples=" + juce::String(owner.getMeaningfulAudioSamples()) + " MinRequired=" + juce::String(owner.getMinAudioSamplesForSave()));
 
         // Only autosave if enabled AND we have enough meaningful audio recorded
         // AND no save operation is currently in progress
@@ -67,11 +64,11 @@ public:
         {
             DBG("Triggering autosave!");
             // Use a longer delay to ensure audio processing is stable
-            juce::Timer::callAfterDelay(50, [this]() {
+            juce::Timer::callAfterDelay(50, [this]()
+                                        {
                 if (owner.isAutoSaveEnabled() && owner.hasEnoughAudioToSave() && !owner.isSaveOperationInProgress()) {
                     owner.saveLastRecording(true); // Pass true for auto-save
-                }
-            });
+                } });
         }
         else
         {
@@ -80,24 +77,24 @@ public:
     }
 
 private:
-    SoundCollectorAudioProcessor& owner;
+    SoundCollectorAudioProcessor &owner;
 };
 
 //==============================================================================
 SoundCollectorAudioProcessor::SoundCollectorAudioProcessor()
 #ifndef JucePlugin_PreferredChannelConfigurations
-     : AudioProcessor (BusesProperties()
-                       #if ! JucePlugin_IsMidiEffect
-                        #if ! JucePlugin_IsSynth
-                        .withInput  ("Input",  juce::AudioChannelSet::stereo(), true)
-                        #endif
-                        .withOutput ("Output", juce::AudioChannelSet::stereo(), true)
-                       #endif
-                       ),
+    : AudioProcessor(BusesProperties()
+#if !JucePlugin_IsMidiEffect
+#if !JucePlugin_IsSynth
+                         .withInput("Input", juce::AudioChannelSet::stereo(), true)
 #endif
-       apvts(*this, nullptr, "PARAMS", juce::AudioProcessorValueTreeState::ParameterLayout{}),
-       formatManager(), thumbnailCache(5), autoSaveTimer(std::make_unique<AutoSaveTimer>(*this)),
-       saveThread(std::make_unique<SaveThread>(*this))
+                         .withOutput("Output", juce::AudioChannelSet::stereo(), true)
+#endif
+                         ),
+#endif
+      apvts(*this, nullptr, "PARAMS", juce::AudioProcessorValueTreeState::ParameterLayout{}),
+      formatManager(), thumbnailCache(5), autoSaveTimer(std::make_unique<AutoSaveTimer>(*this)),
+      saveThread(std::make_unique<SaveThread>(*this))
 {
     formatManager.registerBasicFormats();
     circularBuffer.setSize(2, maxBufferSamples); // 10 seconds stereo
@@ -140,7 +137,7 @@ const juce::String SoundCollectorAudioProcessor::getName() const
 }
 
 //==============================================================================
-void SoundCollectorAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
+void SoundCollectorAudioProcessor::prepareToPlay(double sampleRate, int samplesPerBlock)
 {
     lastSampleRate = sampleRate;
     bufferWritePosition = 0;
@@ -172,33 +169,32 @@ void SoundCollectorAudioProcessor::releaseResources()
 }
 
 #ifndef JucePlugin_PreferredChannelConfigurations
-bool SoundCollectorAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
+bool SoundCollectorAudioProcessor::isBusesLayoutSupported(const BusesLayout &layouts) const
 {
     // This is the place where you check if the layout is supported.
     // In this template code we only support mono or stereo.
-    if (layouts.getMainOutputChannelSet() != juce::AudioChannelSet::mono()
-     && layouts.getMainOutputChannelSet() != juce::AudioChannelSet::stereo())
+    if (layouts.getMainOutputChannelSet() != juce::AudioChannelSet::mono() && layouts.getMainOutputChannelSet() != juce::AudioChannelSet::stereo())
         return false;
 
     // This checks if the input layout matches the output layout
-   #if ! JucePlugin_IsSynth
+#if !JucePlugin_IsSynth
     if (layouts.getMainOutputChannelSet() != layouts.getMainInputChannelSet())
         return false;
-   #endif
+#endif
 
     return true;
 }
 #endif
 
-void SoundCollectorAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
+void SoundCollectorAudioProcessor::processBlock(juce::AudioBuffer<float> &buffer, juce::MidiBuffer &midiMessages)
 {
     juce::ScopedNoDenormals noDenormals;
-    auto totalNumInputChannels  = getTotalNumInputChannels();
+    auto totalNumInputChannels = getTotalNumInputChannels();
     auto totalNumOutputChannels = getTotalNumOutputChannels();
 
     // Clear any output channels that don't have input
     for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
-        buffer.clear (i, 0, buffer.getNumSamples());
+        buffer.clear(i, 0, buffer.getNumSamples());
 
     // Generate test tone if active
     if (testToneActive.load())
@@ -275,12 +271,10 @@ void SoundCollectorAudioProcessor::processBlock (juce::AudioBuffer<float>& buffe
 
     // Debug: Log every 20 blocks to see what's happening more frequently
     static int debugCounter = 0;
-    if (++debugCounter >= 20) {
+    if (++debugCounter >= 20)
+    {
         debugCounter = 0;
-        DBG("Input level: " + juce::String(inputLevel) + " dB: " + juce::String(inputDb) + " Avg: " + juce::String(newAvg) + " Threshold: " + juce::String(threshold.load())
-            + " Gate: " + juce::String(gateOpen ? "OPEN" : "CLOSED") + " Recording: " + juce::String(recording.load() ? "YES" : "NO")
-            + " Paused: " + juce::String(bufferPaused.load() ? "YES" : "NO") + " Hold: " + juce::String(holdCountdownSamples.load())
-            + " Meaningful: " + juce::String(meaningfulAudioSamples.load()));
+        DBG("Input level: " + juce::String(inputLevel) + " dB: " + juce::String(inputDb) + " Avg: " + juce::String(newAvg) + " Threshold: " + juce::String(threshold.load()) + " Gate: " + juce::String(gateOpen ? "OPEN" : "CLOSED") + " Recording: " + juce::String(recording.load() ? "YES" : "NO") + " Paused: " + juce::String(bufferPaused.load() ? "YES" : "NO") + " Hold: " + juce::String(holdCountdownSamples.load()) + " Meaningful: " + juce::String(meaningfulAudioSamples.load()));
     }
 
     // Hold logic: when gate just opened, keep recording for thresholdHoldSamples even if it dips
@@ -326,10 +320,9 @@ void SoundCollectorAudioProcessor::processBlock (juce::AudioBuffer<float>& buffe
                 bufferWritePosition = 0;
                 bufferFull = true;
             }
-
         }
 
-                // Track meaningful audio samples (only when gate is actually open, not during hold)
+        // Track meaningful audio samples (only when gate is actually open, not during hold)
         if (gateOpen)
         {
             meaningfulAudioSamples.store(meaningfulAudioSamples.load() + buffer.getNumSamples());
@@ -360,13 +353,13 @@ bool SoundCollectorAudioProcessor::hasEditor() const
     return true;
 }
 
-juce::AudioProcessorEditor* SoundCollectorAudioProcessor::createEditor()
+juce::AudioProcessorEditor *SoundCollectorAudioProcessor::createEditor()
 {
     return new SoundCollectorAudioProcessorEditor(*this);
 }
 
 //==============================================================================
-void SoundCollectorAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
+void SoundCollectorAudioProcessor::getStateInformation(juce::MemoryBlock &destData)
 {
     // Create a ValueTree to store our state
     juce::ValueTree state("SoundCollectorState");
@@ -390,7 +383,7 @@ void SoundCollectorAudioProcessor::getStateInformation (juce::MemoryBlock& destD
     DBG("Session state saved - Directory: " + customSaveDirectory.getFullPathName() + " Prefix: " + sessionFilePrefix);
 }
 
-void SoundCollectorAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
+void SoundCollectorAudioProcessor::setStateInformation(const void *data, int sizeInBytes)
 {
     // Create a ValueTree from the saved data
     std::unique_ptr<juce::XmlElement> xmlState(getXmlFromBinary(data, sizeInBytes));
@@ -399,7 +392,7 @@ void SoundCollectorAudioProcessor::setStateInformation (const void* data, int si
     {
         juce::ValueTree state = juce::ValueTree::fromXml(*xmlState);
 
-                    // Restore the session-specific save directory
+        // Restore the session-specific save directory
         if (state.hasProperty("sessionSaveDirectory"))
         {
             juce::String dirPath = state.getProperty("sessionSaveDirectory");
@@ -463,7 +456,8 @@ void SoundCollectorAudioProcessor::saveLastRecording(bool isAutoSave)
     DBG("Bypass mode enabled for save operation");
 
     // Create a lambda that captures the current buffer state and performs the save
-    auto saveOperation = [this, isAutoSave]() {
+    auto saveOperation = [this, isAutoSave]()
+    {
         saveOperationInProgress.store(true);
         performSaveOperation(isAutoSave);
         saveOperationInProgress.store(false);
@@ -485,9 +479,9 @@ void SoundCollectorAudioProcessor::performSaveOperation(bool isAutoSave)
 
     // Get prefix from session state with safe fallback
     juce::String prefix = sessionFilePrefix;
-    if (prefix.isEmpty() || prefix == "Filename")
+    if (prefix.isEmpty() || prefix == "Untitled" || prefix == "Untitled")
     {
-        prefix = "SoundCollector";
+        prefix = "Untitled";
     }
 
     juce::File saveDir = getUserSaveDirectory();
@@ -554,7 +548,7 @@ void SoundCollectorAudioProcessor::performSaveOperation(bool isAutoSave)
         wasBufferFull = bufferFull;
         snapshotWritePosition = bufferWritePosition;
 
-                if (isAutoSave)
+        if (isAutoSave)
         {
             // For autosave, always save the most recent 10 seconds (entire buffer)
             if (wasBufferFull)
@@ -563,14 +557,14 @@ void SoundCollectorAudioProcessor::performSaveOperation(bool isAutoSave)
                 // For full buffer, start from the oldest position (current write position)
                 // This gives us the most recent 10 seconds in chronological order
                 startPosition = snapshotWritePosition;
-                DBG("Autosave: Full buffer - saving " + juce::String(samplesToWrite) + 
+                DBG("Autosave: Full buffer - saving " + juce::String(samplesToWrite) +
                     " samples starting from position " + juce::String(startPosition));
             }
             else
             {
                 samplesToWrite = snapshotWritePosition;
                 startPosition = 0;
-                DBG("Autosave: Partial buffer - saving " + juce::String(samplesToWrite) + 
+                DBG("Autosave: Partial buffer - saving " + juce::String(samplesToWrite) +
                     " samples starting from position " + juce::String(startPosition));
             }
         }
@@ -608,9 +602,9 @@ void SoundCollectorAudioProcessor::performSaveOperation(bool isAutoSave)
                     tempBuffer.setSample(channel, sample, circularBuffer.getSample(channel, readPos));
                 }
             }
-            
-            DBG("Full buffer save: WritePos=" + juce::String(snapshotWritePosition) + 
-                " Samples=" + juce::String(maxBufferSamples) + 
+
+            DBG("Full buffer save: WritePos=" + juce::String(snapshotWritePosition) +
+                " Samples=" + juce::String(maxBufferSamples) +
                 " Reading from oldest position for chronological order");
         }
         else
@@ -636,10 +630,10 @@ void SoundCollectorAudioProcessor::performSaveOperation(bool isAutoSave)
 
     // Create WAV writer
     std::unique_ptr<juce::AudioFormatWriter> writer;
-    if (auto* wavFormat = formatManager.findFormatForFileExtension("wav"))
+    if (auto *wavFormat = formatManager.findFormatForFileExtension("wav"))
     {
         writer.reset(wavFormat->createWriterFor(new juce::FileOutputStream(saveFile),
-                                               lastSampleRate, 2, 24, {}, 0));
+                                                lastSampleRate, 2, 24, {}, 0));
     }
 
     if (writer != nullptr)
@@ -670,7 +664,7 @@ void SoundCollectorAudioProcessor::performSaveOperation(bool isAutoSave)
         onSaveCallback(isAutoSave ? "Auto Save" : "Quick Save");
     }
 
-        // For auto-save, reset the meaningful audio counter and clear the buffer
+    // For auto-save, reset the meaningful audio counter and clear the buffer
     if (isAutoSave)
     {
         // Clear the circular buffer to prevent accumulation of audio
@@ -678,7 +672,7 @@ void SoundCollectorAudioProcessor::performSaveOperation(bool isAutoSave)
         circularBuffer.clear();
         bufferWritePosition = 0;
         bufferFull = false;
-        
+
         // Reset the meaningful audio counter since we've saved all the audio
         meaningfulAudioSamples.store(0);
         hasEnoughAudioForSave.store(false);
@@ -686,7 +680,7 @@ void SoundCollectorAudioProcessor::performSaveOperation(bool isAutoSave)
         DBG("Auto-save completed - saved " + juce::String(samplesToWrite) + " samples");
         DBG("Reset meaningful audio counter to 0 and cleared buffer");
         DBG("Buffer cleared - next recording will start fresh");
-        
+
         // Restart the autosave timer to ensure it continues working
         if (autoSaveTimer)
         {
@@ -697,7 +691,7 @@ void SoundCollectorAudioProcessor::performSaveOperation(bool isAutoSave)
     }
 }
 
-void SoundCollectorAudioProcessor::setUserSaveDirectoryAndPersist(const juce::File& dir)
+void SoundCollectorAudioProcessor::setUserSaveDirectoryAndPersist(const juce::File &dir)
 {
     customSaveDirectory = dir;
     sessionSaveDirectoryPath = dir.getFullPathName();
@@ -714,12 +708,20 @@ double SoundCollectorAudioProcessor::getTailLengthSeconds() const { return 0.0; 
 int SoundCollectorAudioProcessor::getNumPrograms() { return 1; }
 int SoundCollectorAudioProcessor::getCurrentProgram() { return 0; }
 void SoundCollectorAudioProcessor::setCurrentProgram(int index) { juce::ignoreUnused(index); }
-const juce::String SoundCollectorAudioProcessor::getProgramName(int index) { juce::ignoreUnused(index); return {}; }
-void SoundCollectorAudioProcessor::changeProgramName(int index, const juce::String& newName) { juce::ignoreUnused(index, newName); }
+const juce::String SoundCollectorAudioProcessor::getProgramName(int index)
+{
+    juce::ignoreUnused(index);
+    return {};
+}
+void SoundCollectorAudioProcessor::changeProgramName(int index, const juce::String &newName) { juce::ignoreUnused(index, newName); }
 
 void SoundCollectorAudioProcessor::startContinuousRecording() { recording = true; }
 void SoundCollectorAudioProcessor::stopContinuousRecording() { recording = false; }
-void SoundCollectorAudioProcessor::saveLastRecordingWithDuration(float duration) { juce::ignoreUnused(duration); saveLastRecording(false); }
+void SoundCollectorAudioProcessor::saveLastRecordingWithDuration(float duration)
+{
+    juce::ignoreUnused(duration);
+    saveLastRecording(false);
+}
 
 juce::String SoundCollectorAudioProcessor::getProjectName() const { return "SoundCollector"; }
 juce::File SoundCollectorAudioProcessor::getSaveDirectory() const { return getUserSaveDirectory(); }
@@ -727,7 +729,7 @@ juce::File SoundCollectorAudioProcessor::getSessionDirectory() const { return ju
 
 //==============================================================================
 // Helper method to format date consistently for filenames
-juce::String SoundCollectorAudioProcessor::formatDateForFilename(const juce::Time& time)
+juce::String SoundCollectorAudioProcessor::formatDateForFilename(const juce::Time &time)
 {
     // Format: YYYY-MM-DD (local time, not UTC)
     // Use explicit formatting to ensure correct YYYY-MM-DD format
@@ -736,8 +738,8 @@ juce::String SoundCollectorAudioProcessor::formatDateForFilename(const juce::Tim
     int day = time.getDayOfMonth();
 
     juce::String formattedDate = juce::String(year) + "-" +
-                                juce::String(month).paddedLeft('0', 2) + "-" +
-                                juce::String(day).paddedLeft('0', 2);
+                                 juce::String(month).paddedLeft('0', 2) + "-" +
+                                 juce::String(day).paddedLeft('0', 2);
 
     DBG("Date formatting: Year=" + juce::String(year) + " Month=" + juce::String(month) + " Day=" + juce::String(day) + " Result=" + formattedDate);
 
@@ -745,7 +747,7 @@ juce::String SoundCollectorAudioProcessor::formatDateForFilename(const juce::Tim
 }
 
 //==============================================================================
-juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
+juce::AudioProcessor *JUCE_CALLTYPE createPluginFilter()
 {
     return new SoundCollectorAudioProcessor();
 }
