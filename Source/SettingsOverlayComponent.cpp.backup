@@ -97,31 +97,16 @@ void SettingsOverlayComponent::setCloseCallback(std::function<void()> cb) { clos
 
 void SettingsOverlayComponent::open()
 {
-  if (openState)
-    return;
-  isClosing = false;
   openState = true;
   setVisible(true);
-  toFront(true); // Bring to front and grab focus
   grabKeyboardFocus();
 }
 void SettingsOverlayComponent::close()
 {
-  if (!openState || isClosing)
-    return;
-  isClosing = true;
   openState = false;
   setVisible(false);
-  removeKeyListener(this);
-  // Defer callback to avoid re-entrancy/use-after-free if owner deletes us.
-  auto cb = closeCallback;
-  // Clear stored callbacks to prevent accidental reuse
-  closeCallback = nullptr;
-  validationCallback = nullptr;
-  if (cb)
-  {
-    juce::MessageManager::callAsync([cb]() { cb(); });
-  }
+  if (closeCallback)
+    closeCallback();
 }
 bool SettingsOverlayComponent::isOpen() const { return openState; }
 

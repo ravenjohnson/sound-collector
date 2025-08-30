@@ -639,7 +639,12 @@ void SoundCollectorAudioProcessorEditor::resized()
 {
     positionComponents();
     if (settingsOverlay)
+    {
         settingsOverlay->setBounds(getLocalBounds());
+        // Ensure settings overlay stays on top if it's open
+        if (isSettingsOpen)
+            settingsOverlay->toFront(true);
+    }
 }
 
 // Settings overlay open/close API
@@ -653,6 +658,8 @@ void SoundCollectorAudioProcessorEditor::openSettingsOverlay()
         settingsOverlay->open();
         settingsOverlay->grabKeyboardFocus();
         settingsOverlay->toFront(true);
+        // Force a repaint to ensure proper z-order
+        settingsOverlay->repaint();
     }
     repaint();
 }

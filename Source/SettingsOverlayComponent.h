@@ -33,6 +33,7 @@ private:
   int bufferDuration = 10;
   int autoSaveDuration = 10;
   bool openState = false;
+  bool isClosing = false;
 
   std::function<void(int, int)> validationCallback;
   std::function<void()> closeCallback;
